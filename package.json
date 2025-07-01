@@ -1,0 +1,23 @@
+{
+  "name": "trip-album",
+  "version": "1.0.0",
+  "description": "Website to host friends' trip photos with an interactive map.",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JackREscowitz/trip-album.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/JackREscowitz/trip-album/issues"
+  },
+  "homepage": "https://github.com/JackREscowitz/trip-album#readme",
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
