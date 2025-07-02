@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Revres Tfarcenim</title>
+    <title>Mapjak</title>
 </head>
 <body>
     <form id="loginForm" action="/login" method="POST" enctype="application/x-www-form-urlencoded">
@@ -13,6 +13,7 @@
     <p id="logInFailMessage"></p>
 
     <script>
+        // Frontend JS that does a fetch to /login
         const form = document.getElementById("loginForm");
         const logInFailMessage = document.getElementById("logInFailMessage");
         form.addEventListener("submit", async (event) => {
@@ -27,7 +28,7 @@
             const result = await response.text();
 
             if (result === 'success') {
-                window.location.href = '/index.html';
+                window.location.href = '/upload';
             } else {
                 logInFailMessage.textContent = result;
             }
