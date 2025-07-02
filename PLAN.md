@@ -8,10 +8,7 @@
     Will be viewable through an interactive map utilizing an API
 
 ## Next Steps
-    Build upload form to take multiple photos
-    Set up backend to store files
-    Try EXIF extraction
-    Pick a map library
+    
 
 ## Nice to haves
     Comments
