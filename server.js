@@ -90,10 +90,10 @@ app.get('/uploads', requireLogin, (req, res) => {
     res.json(uploads); // Send it as JSON
 });
 
-// Login route, redirects to upload route if logged in
+// Login route, redirects to map route if logged in
 app.get('/login', (req, res) => {
     if (req.session.user) {
-        res.redirect('/upload');
+        res.redirect('/map');
     } else {
         res.sendFile(__dirname + '/login.html');
     }
@@ -102,6 +102,11 @@ app.get('/login', (req, res) => {
 // Protected upload page
 app.get('/upload', requireLogin, (req, res) => {
     res.sendFile(__dirname + '/upload-page.html');
+})
+
+// Protected map page
+app.get('/map', requireLogin, (req, res) => {
+    res.sendFile(__dirname + '/map.html');
 })
 
 // Logout route
@@ -129,6 +134,9 @@ app.post('/login', (req, res) => {
 
 // Serve static assets
 app.use(express.static(__dirname + '/public'));
+
+// Serve uploaded images from /uploads to URLs starting with /uploads
+app.use('/uploads', express.static(__dirname + '/uploads'));
 
 // Undefined route, sends 404 page
 app.use((req, res) => {

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Mapjak - Map</title>
+
+    <!--Must include Leaflet CSS in head-->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin="""
+    />
+
+    <style>
+        /* Full page map */
+        #map {
+            height: 90vh;
+            width: 100%;
+        }
+    </style>
+    
+    <!-- Leaflet's JavaScript file -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin="">
+    </script>
+</head>
+<body>
+    <button onclick="window.location.href='/upload'">Upload Files</button>
+    <button onclick="window.location.href='/logout'">Log Out</button>
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script>
+        // Initialize the map
+        const map = L.map('map').setView([0, 0], 2);
+
+        // Add a tile layer
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+
+        // Fetch uploads JSON
+        fetch('/uploads')
+            // Parses response from server into JS array
+            .then(response => response.json())
+            .then(data => {
+
+                // Create an empty bounds box
+                const bounds = L.latLngBounds();
+
+                data.forEach(record => {
+                    if (record.gps.lat && record.gps.lon) {
+                        const marker = L.marker([record.gps.lat, record.gps.lon])
+                            .addTo(map)
+                            .bindPopup(`
+                                <img src="/uploads/${record.filename}"
+                                alt="${record.originalname}"
+                                style="width: 150px; height: auto; margin-top: 5px;"><br>
+                                File name: ${record.originalname}<br>
+                                Uploaded by: ${record.user}`);
+                        bounds.extend([record.gps.lat, record.gps.lon]);
+                    }
+                });
+
+                if (bounds.isValid()) {
+                    map.fitBounds(bounds);
+                }
+            })
+            .catch(error => console.error('Error fetching uploads:', error));
+    </script>
+</body>
+</html>

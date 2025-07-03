@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Mapjak</title>
+    <title>Mapjak - Log In</title>
 </head>
 <body>
     <form id="loginForm" action="/login" method="POST" enctype="application/x-www-form-urlencoded">
@@ -28,7 +28,7 @@
             const result = await response.text();
 
             if (result === 'success') {
-                window.location.href = '/upload';
+                window.location.href = '/map';
             } else {
                 logInFailMessage.textContent = result;
             }
