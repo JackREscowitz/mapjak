@@ -18,7 +18,9 @@
   },
   "homepage": "https://github.com/JackREscowitz/trip-album#readme",
   "dependencies": {
+    "exif-parser": "^0.1.12",
     "express": "^5.1.0",
-    "express-session": "^1.18.1"
+    "express-session": "^1.18.1",
+    "multer": "^2.0.1"
   }
 }

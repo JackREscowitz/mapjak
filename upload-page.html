@@ -5,11 +5,35 @@
 </head>
 <body>
     <h1>Upload a picture or video</h1>
-    <form action="/upload" method="POST" enctype="multipart/form-data">
+    <form id="uploadForm" enctype="multipart/form-data">
         <input type="file" name="submission" multiple><br>
         <input type="submit" value="Submit">
     </form>
 
+    <p id="uploadStatus"></p>
+
     <button onclick="window.location.href='/logout'">Log Out</button>
+
+    <script>
+        // Front JS for success message and multiple submissions
+        const form = document.getElementById('uploadForm');
+        const status = document.getElementById('uploadStatus');
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            const formData = new FormData(form);
+
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.text();
+            status.textContent = result; // Success message
+
+            form.reset(); // Clear file input so user can submit again
+        })
+    </script>
 </body>
 </html>

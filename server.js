@@ -1,12 +1,19 @@
 const express = require('express');
 const session = require('express-session');
+const multer = require('multer');
+const fs = require('fs');
+const exifParser = require('exif-parser');
 const app = express();
 const PORT = 3000;
+const UPLOADS_JSON = './uploads.json'; // File path for database (temp)
 
 // USER DATA (Might want to change this to be sourced from a database)
 const users = [
     { username: 'Jack Escowitz', password: 'baobao' }
 ]
+
+// Store uploaded files in /uploads
+const upload = multer( { dest: 'uploads/' });
 
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
@@ -24,9 +31,63 @@ function requireLogin(req, res, next) {
     }
 }
 
+// Helper function to read current records
+function readUploads() {
+    if (!fs.existsSync(UPLOADS_JSON)) {
+        return [];
+    }
+    const data = fs.readFileSync(UPLOADS_JSON);
+    return JSON.parse(data); // Returns JS array of objects
+}
+
+// Helper function to write new records
+function saveUploads(data) {
+    fs.writeFileSync(UPLOADS_JSON, JSON.stringify(data, null, 2));
+}
+
 // Root goes to login
 app.get('/', (req, res) => {
     res.redirect('/login');
+});
+
+// Route for uploaded files
+app.post('/upload', requireLogin, upload.array('submission'), (req, res) => {
+    // Get current records so we append and not overwrite
+    const uploads = readUploads(); 
+
+    req.files.forEach(file => {
+        // Load the uploaded file into memory as a buffer of raw bytes
+        const buffer = fs.readFileSync(file.path);
+        // Create an EXIF parser from the binary
+        const parser = exifParser.create(buffer);
+        // Run the parser, get back tagged metadata
+        const result = parser.parse();
+
+        const record = {
+            user: req.session.user.username,
+            filename: file.filename,
+            originalname: file.originalname,
+            path: file.path,
+            gps: {
+                lat: result.tags.GPSLatitude || null,
+                lon: result.tags.GPSLongitude || null
+            },
+            uploadedAt: new Date().toISOString()
+        };
+
+        uploads.push(record); // Append new record to growing list
+
+    });
+
+    saveUploads(uploads); // Write the updated list uploads
+
+    res.send('Upload successful and metadata saved!');
+})
+
+// Route for getting uploads.json
+app.get('/uploads', requireLogin, (req, res) => {
+    const uploads = readUploads();
+    res.json(uploads); // Send it as JSON
 });
 
 // Login route, redirects to upload route if logged in
