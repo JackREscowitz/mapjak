@@ -3,6 +3,9 @@ const session = require('express-session');
 const multer = require('multer');
 const fs = require('fs');
 const exifParser = require('exif-parser');
+const { Pool } = require('pg');
+const bcrypt = require('bcrypt');
+
 const app = express();
 const PORT = 3000;
 const UPLOADS_JSON = './uploads.json'; // File path for database (temp)
@@ -11,6 +14,14 @@ const UPLOADS_JSON = './uploads.json'; // File path for database (temp)
 const users = [
     { username: 'Jack Escowitz', password: 'baobao' }
 ]
+
+const pool = new Pool({
+    user: 'postgres', // Postgres user
+    host: 'localhost', // Local server
+    database: 'mapjak', // Created DB
+    password: 'simpleflips', // Postgres password
+    port: 5432 // Default Postgres port
+});
 
 // Store uploaded files in /uploads
 const upload = multer( { dest: 'uploads/' });
@@ -31,64 +42,87 @@ function requireLogin(req, res, next) {
     }
 }
 
-// Helper function to read current records
-function readUploads() {
-    if (!fs.existsSync(UPLOADS_JSON)) {
-        return [];
-    }
-    const data = fs.readFileSync(UPLOADS_JSON);
-    return JSON.parse(data); // Returns JS array of objects
-}
-
-// Helper function to write new records
-function saveUploads(data) {
-    fs.writeFileSync(UPLOADS_JSON, JSON.stringify(data, null, 2));
-}
-
 // Root goes to login
 app.get('/', (req, res) => {
     res.redirect('/login');
 });
 
 // Route for uploaded files
-app.post('/upload', requireLogin, upload.array('submission'), (req, res) => {
-    // Get current records so we append and not overwrite
-    const uploads = readUploads(); 
+app.post('/upload', requireLogin, upload.array('submission'), async (req, res) => {
+    try {
+        let skippedCount = 0;
+        let insertedCount = 0;
 
-    req.files.forEach(file => {
-        // Load the uploaded file into memory as a buffer of raw bytes
-        const buffer = fs.readFileSync(file.path);
-        // Create an EXIF parser from the binary
-        const parser = exifParser.create(buffer);
-        // Run the parser, get back tagged metadata
-        const result = parser.parse();
+        for (const file of req.files) {
+            // Load the uploaded file into memory as a buffer of raw bytes
+            const buffer = fs.readFileSync(file.path);
+            // Create an EXIF parser from the binary
+            const parser = exifParser.create(buffer);
+            // Run the parser, get back tagged metadata
+            const result = parser.parse();
 
-        const record = {
-            user: req.session.user.username,
-            filename: file.filename,
-            originalname: file.originalname,
-            path: file.path,
-            gps: {
-                lat: result.tags.GPSLatitude || null,
-                lon: result.tags.GPSLongitude || null
-            },
-            dateTaken: result.tags.DateTimeOriginal || null,
-            uploadedAt: new Date().toISOString()
-        };
+            const lat = result.tags.GPSLatitude || null;
+            const lon = result.tags.GPSLongitude || null;
 
-        uploads.push(record); // Append new record to growing list
+            // Check for duplicate
+            const checkQuery = `
+                SELECT * FROM photos
+                WHERE user_id = $1 AND originalname = $2 AND lat = $3 AND lon = $4
+            `;
 
-    });
+            const checkValues = [
+                req.session.user.id,
+                file.originalname,
+                lat,
+                lon
+            ];
 
-    saveUploads(uploads); // Write the updated list uploads
+            const existing = await pool.query(checkQuery, checkValues);
 
-    res.send('Upload successful and metadata saved!');
-})
+            if (existing.rows.length > 0) {
+                skippedCount++;
+                console.log(`Duplicate found for ${file.originalname} — skipping insert.`);
+                fs.unlinkSync(file.path); // Delete the file
+                continue; // Skip insert
+            }
+            
+            // Insert only if no duplicate is found
+            const insertQuery = `
+                INSERT INTO photos (user_id, filename, originalname, filepath, lat, lon, date_taken)
+                VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7))
+            `;
 
-// Route for getting uploads.json
-app.get('/uploads', requireLogin, (req, res) => {
-    const uploads = readUploads();
-    res.json(uploads); // Send it as JSON
+            const insertValues = [
+                req.session.user.id,
+                file.filename,
+                file.originalname,
+                file.path,
+                lat,
+                lon,
+                result.tags.CreateDate || null
+            ];
+            
+            await pool.query(insertQuery, insertValues);
+            insertedCount++;
+        }
+
+        res.send(`Upload complete! Added: ${insertedCount} Duplicates skipped: ${skippedCount}`);
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Database insert failed.');
+    }
+});
+
+// Route for getting uploads from DB
+app.get('/uploads', requireLogin, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM photos');
+        res.json(result.rows); // rows = all your photo records
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error fetching uploads');
+    }
 });
 
 // Login route, redirects to map route if logged in
@@ -118,18 +152,35 @@ app.get('/logout', (req, res) => {
 });
 
 // Login POST route
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
     console.log(req.body);
     const { username, password } = req.body;
 
-    const user = users.find(user => user.username === username && user.password === password);
+    try {
+        const result = await pool.query(
+            'SELECT id, username, hashed_password FROM users WHERE username = $1',
+            [username]
+        );
 
-    if (user) {
-        // Store username in the session
-        req.session.user = { username: user.username };
-        res.send('success');
-    } else {
-        res.send('Invalid username or password.');
+        if (result.rows.length > 0) {
+            const user = result.rows[0];
+
+            // Compare typed password to stored hash
+            const match = await bcrypt.compare(password, user.hashed_password);
+
+            if (match) {
+                req.session.user = { id: user.id, username: user.username };
+                res.send('success');
+            } else {
+                res.send('Invalid username or password.');
+            }
+
+        } else {
+            res.send('Invalid username or password.');
+        }
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Login error, something went wrong.');
     }
 });
 

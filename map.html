@@ -25,7 +25,7 @@
         }
 
         body {
-            font-family: 'Manrope', 'Segoe UI', 'Noto Sans', 'Arial Rounded MT Bold', Arial, sans-serif;
+            font-family: 'Segoe UI', 'Manrope', 'Noto Sans', 'Arial Rounded MT Bold', Arial, sans-serif;
             margin: 0;
             background: linear-gradient(to bottom right, #e0f7fa, #ffffff);
         }
@@ -104,8 +104,8 @@
                 const bounds = L.latLngBounds();
 
                 data.forEach(record => {
-                    if (record.gps.lat && record.gps.lon) {
-                        const marker = L.marker([record.gps.lat, record.gps.lon])
+                    if (record.lat && record.lon) {
+                        const marker = L.marker([record.lat, record.lon])
                             .addTo(map)
                             .bindPopup(`
                                 <img src="/uploads/${record.filename}"
@@ -114,11 +114,11 @@
                                 <details>
                                     <summary>Show Details</summary>
                                     File name: ${record.originalname}<br>
-                                    Date taken: ${record.dateTaken ? new Date(record.dateTaken * 1000).toLocaleString() : 'Unknown'}<br>
-                                    Uploaded by: ${record.user}
+                                    Date taken: ${record.date_taken ? new Date(record.date_taken).toLocaleString() : 'Unknown'}<br>
+                                    Uploaded by: ${record.user_id}
                                 </details>
                             `);
-                        bounds.extend([record.gps.lat, record.gps.lon]);
+                        bounds.extend([record.lat, record.lon]);
                     }
                 });
 
