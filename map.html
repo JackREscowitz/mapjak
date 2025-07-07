@@ -10,12 +10,60 @@
         crossorigin="""
     />
 
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap" rel="stylesheet">
+
     <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
         /* Full page map */
         #map {
-            height: 90vh;
+            height: calc(100vh - 48.5px);
             width: 100%;
         }
+
+        body {
+            font-family: 'Manrope', 'Segoe UI', 'Noto Sans', 'Arial Rounded MT Bold', Arial, sans-serif;
+            margin: 0;
+            background: linear-gradient(to bottom right, #e0f7fa, #ffffff);
+        }
+
+        .site-header {
+            background: linear-gradient(to right, #b3e5fc, #e1f5fe);
+            color: #333;
+            padding: 0.5rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            border-bottom: 1px solid #b3e5fc;
+        }
+
+        .site-header h1 {
+            margin: 0;
+            font-weight: 400;
+            font-size: 1.2rem;
+        }
+
+        .nav-btn {
+            background: linear-gradient(to bottom, rgba(255,255,255,0.6), rgba(255,255,255,0.2));
+            border: none;
+            color: #333;
+            padding: 0.5rem 1rem;
+            margin-left: 0.5rem;
+            border-radius: 9999px;
+            cursor: pointer;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+            transition: background 0.3s, transform 0.1s;
+        }
+
+        .nav-btn:hover {
+            background: linear-gradient(to bottom, rgba(255,255,255,0.8), rgba(255,255,255,0.3));
+            transform: translateY(-1px);
+        }
+
     </style>
     
     <!-- Leaflet's JavaScript file -->
@@ -25,8 +73,15 @@
     </script>
 </head>
 <body>
-    <button onclick="window.location.href='/upload'">Upload Files</button>
-    <button onclick="window.location.href='/logout'">Log Out</button>
+    <header class="site-header">
+        <h1>Mapjak</h1>
+        <nav>
+            <button onclick="window.location.href='/upload'" class="nav-btn">Upload</button>
+            <button onclick="window.location.href='/map'" class="nav-btn">Map</button>
+            <button onclick="window.location.href='/logout'" class="nav-btn">Log Out</button>
+        </nav>
+    </header>
+    
     <div id="map"></div>
 
     <!-- Leaflet JS -->
@@ -54,10 +109,15 @@
                             .addTo(map)
                             .bindPopup(`
                                 <img src="/uploads/${record.filename}"
-                                alt="${record.originalname}"
-                                style="width: 150px; height: auto; margin-top: 5px;"><br>
-                                File name: ${record.originalname}<br>
-                                Uploaded by: ${record.user}`);
+                                    alt="${record.originalname}"
+                                    style="width: 300px; height: auto; margin-top: 5px;"><br>
+                                <details>
+                                    <summary>Show Details</summary>
+                                    File name: ${record.originalname}<br>
+                                    Date taken: ${record.dateTaken ? new Date(record.dateTaken * 1000).toLocaleString() : 'Unknown'}<br>
+                                    Uploaded by: ${record.user}
+                                </details>
+                            `);
                         bounds.extend([record.gps.lat, record.gps.lon]);
                     }
                 });

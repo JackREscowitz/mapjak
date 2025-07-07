@@ -72,6 +72,7 @@ app.post('/upload', requireLogin, upload.array('submission'), (req, res) => {
                 lat: result.tags.GPSLatitude || null,
                 lon: result.tags.GPSLongitude || null
             },
+            dateTaken: result.tags.DateTimeOriginal || null,
             uploadedAt: new Date().toISOString()
         };
 
