@@ -114,8 +114,8 @@
                                 <details>
                                     <summary>Show Details</summary>
                                     File name: ${record.originalname}<br>
-                                    Date taken: ${record.date_taken ? new Date(record.date_taken).toLocaleString() : 'Unknown'}<br>
-                                    Uploaded by: ${record.user_id}
+                                    Date taken: ${record.date_taken ? new Date(record.date_taken).toLocaleDateString() : 'Unknown'}<br>
+                                    Uploaded by: ${record.username}
                                 </details>
                             `);
                         bounds.extend([record.lat, record.lon]);

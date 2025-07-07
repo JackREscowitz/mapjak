@@ -89,7 +89,7 @@ app.post('/upload', requireLogin, upload.array('submission'), async (req, res) =
             // Insert only if no duplicate is found
             const insertQuery = `
                 INSERT INTO photos (user_id, filename, originalname, filepath, lat, lon, date_taken)
-                VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7))
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
             `;
 
             const insertValues = [
@@ -117,7 +117,11 @@ app.post('/upload', requireLogin, upload.array('submission'), async (req, res) =
 // Route for getting uploads from DB
 app.get('/uploads', requireLogin, async (req, res) => {
     try {
-        const result = await pool.query('SELECT * FROM photos');
+        const result = await pool.query(`
+            SELECT photos.*, users.username
+            FROM photos
+            JOIN users ON photos.user_id = users.id
+        `);
         res.json(result.rows); // rows = all your photo records
     } catch (err) {
         console.error(err);
