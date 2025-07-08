@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
@@ -5,30 +6,30 @@ const fs = require('fs');
 const exifParser = require('exif-parser');
 const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
+const path = require('path');
 
 const app = express();
-const PORT = 3000;
-const UPLOADS_JSON = './uploads.json'; // File path for database (temp)
-
-// USER DATA (Might want to change this to be sourced from a database)
-const users = [
-    { username: 'Jack Escowitz', password: 'baobao' }
-]
+const PORT = process.env.PORT || 3000;
 
 const pool = new Pool({
-    user: 'postgres', // Postgres user
-    host: 'localhost', // Local server
-    database: 'mapjak', // Created DB
-    password: 'simpleflips', // Postgres password
-    port: 5432 // Default Postgres port
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT
 });
 
+// Ensure uploads dir exists
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir);
+}
 // Store uploaded files in /uploads
 const upload = multer( { dest: 'uploads/' });
 
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
-    secret: 'your-secret-key', // TODO: should change this
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false
 }));
@@ -63,6 +64,13 @@ app.post('/upload', requireLogin, upload.array('submission'), async (req, res) =
 
             const lat = result.tags.GPSLatitude || null;
             const lon = result.tags.GPSLongitude || null;
+
+            if (!lat || !lon) {
+                skippedCount++;
+                console.log(`No GPS for ${file.originalname} — skipping.`);
+                fs.unlinkSync(file.path);
+                continue;
+            }
 
             // Check for duplicate
             const checkQuery = `
@@ -106,7 +114,7 @@ app.post('/upload', requireLogin, upload.array('submission'), async (req, res) =
             insertedCount++;
         }
 
-        res.send(`Upload complete! Added: ${insertedCount} Duplicates skipped: ${skippedCount}`);
+        res.send(`Upload complete! Added: ${insertedCount} Skipped: ${skippedCount}`);
 
     } catch (err) {
         console.error(err);
@@ -193,6 +201,35 @@ app.use(express.static(__dirname + '/public'));
 
 // Serve uploaded images from /uploads to URLs starting with /uploads
 app.use('/uploads', express.static(__dirname + '/uploads'));
+
+app.post('/delete/:id', requireLogin, async (req, res) => {
+    const photoId = req.params.id;
+
+    try {
+        // Check if photo exists and belongs to user
+        const { rows } = await pool.query(
+            'SELECT * FROM photos WHERE id = $1 AND user_id = $2',
+            [photoId, req.session.user.id]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).send('Photo not found or not owned by you.');
+        }
+
+        const photo = rows[0];
+
+        // Delete file from disk
+        fs.unlinkSync(photo.filepath);
+
+        // Delete from DB
+        await pool.query('DELETE FROM photos WHERE id = $1', [photoId]);
+
+        res.send('Photo deleted successfully.');
+    } catch (err) {
+        console.error(err);
+        res.status(500).send('Error deleting photo.');
+    }
+});
 
 // Undefined route, sends 404 page
 app.use((req, res) => {

@@ -1,5 +1,5 @@
 {
-  "name": "trip-album",
+  "name": "mapjak",
   "version": "1.0.0",
   "description": "Website to host friends' trip photos with an interactive map.",
   "main": "server.js",
@@ -19,6 +19,7 @@
   "homepage": "https://github.com/JackREscowitz/trip-album#readme",
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "dotenv": "^17.1.0",
     "exif-parser": "^0.1.12",
     "express": "^5.1.0",
     "express-session": "^1.18.1",

@@ -1,0 +1,14 @@
+# Ignore node_modules (always)
+node_modules/
+
+# Ignore environment variable files
+.env
+
+# Ignore uploads folder
+uploads/
+
+create-user.js
+
+# Ignore OS-specific junk
+.DS_Store
+Thumbs.db

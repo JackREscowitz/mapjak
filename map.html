@@ -152,6 +152,53 @@
             cursor: pointer;
         }
 
+        .delete-btn {
+            background: linear-gradient(to bottom, #ff6f61, #f44336);
+            color: #fff;
+            border: none;
+            padding: 0.2rem 0.5rem;  /* Smaller padding */
+            border-radius: 9999px;   /* Fully pill-shaped */
+            font-size: 0.75rem;      /* Smaller text */
+            cursor: pointer;
+            margin-top: 0.4rem;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.4),
+                        0 1px 2px rgba(0,0,0,0.1);
+            transition: all 0.2s ease;
+        }
+
+        .delete-btn:hover {
+            background: linear-gradient(to bottom, #f44336, #e53935);
+            transform: translateY(-1px);
+        }
+
+        .toast {
+            position: fixed;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: #fff;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            font-family: 'Segoe UI', 'Manrope', sans-serif;
+            font-size: 0.9rem;
+            z-index: 9999;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(-50%, 0);
+        }
+
+        .toast.hide {
+            opacity: 0;
+            transform: translateY(-50%, 10px);
+        }
+
+
     </style>
     
     <!-- Leaflet's JavaScript file -->
@@ -171,6 +218,9 @@
     </header>
     
     <div id="map"></div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
 
     <!-- Image Modal -->
     <div id="imgModal" class="modal">
@@ -216,8 +266,11 @@
         })
 
         // Add a tile layer
-        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}@2x?access_token={accessToken}', {
+            id: 'mapbox/streets-v12',
+            tileSize: 256,
+            accessToken: 'pk.eyJ1IjoiamFja21hcGphayIsImEiOiJjbWN1dTdocXEwM3FrMm1vYm9uempxdjY4In0.3tyl4kFp2e6UN-i9ni6EyA',
+            attribution: '© Mapbox © OpenStreetMap'
         }).addTo(map);
 
         // Fetch uploads JSON
@@ -243,6 +296,7 @@
                                     <div class="popup-details">
                                         <p><strong>Date:</strong> ${record.date_taken ? new Date(record.date_taken).toLocaleDateString() : 'Unknown'}</p>
                                         <p><strong>Uploaded by:</strong> ${record.username}</p>
+                                        <button onclick="deletePhoto('${record.id}')" class="delete-btn">Delete</button>
                                     </div>
                                 </div>
                             `);
@@ -277,6 +331,43 @@
             modal.style.display = "block";
             modalImg.src = src;
         }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+
+            // Auto-hide after 2.5 sec
+            setTimeout(() => {
+                toast.classList.remove('show');
+                toast.classList.add('hide');
+            }, 2500);
+
+            // Remove hide class after transition so it’s reusable
+            setTimeout(() => {
+                toast.classList.remove('hide');
+            }, 3000);
+        }
+
+        function deletePhoto(id) {
+            fetch(`/delete/${id}`, { method: 'POST' })
+                .then(res => res.text().then(text => {
+                    if (res.ok) {
+                        showToast(text);
+                        setTimeout(() => location.reload(), 2500);
+                    } else {
+                        showToast(text || 'Something went wrong.');
+                    }
+                }))
+                .catch(err => {
+                    console.error(err);
+                    showToast('Error deleting photo.');
+                });
+        }
+
+
+        
+        
 
     </script>
 </body>
