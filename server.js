@@ -89,7 +89,7 @@ app.post('/upload', requireLogin, upload.array('submission'), async (req, res) =
             // Insert only if no duplicate is found
             const insertQuery = `
                 INSERT INTO photos (user_id, filename, originalname, filepath, lat, lon, date_taken)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7))
             `;
 
             const insertValues = [
@@ -99,7 +99,7 @@ app.post('/upload', requireLogin, upload.array('submission'), async (req, res) =
                 file.path,
                 lat,
                 lon,
-                result.tags.CreateDate || null
+                result.tags.CreateDate ? Number(result.tags.CreateDate) : null
             ];
             
             await pool.query(insertQuery, insertValues);
