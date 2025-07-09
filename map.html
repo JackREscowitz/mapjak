@@ -7,7 +7,7 @@
     <!--Must include Leaflet CSS in head-->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-        crossorigin="""
+        crossorigin=""
     />
 
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap" rel="stylesheet">
@@ -276,7 +276,10 @@
         // Fetch uploads JSON
         fetch('/uploads')
             // Parses response from server into JS array
-            .then(response => response.json())
+            .then(response => {
+                if (!res.ok) throw new Error('Network error');
+                return response.json()
+            })
             .then(data => {
 
                 // Create an empty bounds box
@@ -285,30 +288,34 @@
                 data.forEach(record => {
                     if (record.lat && record.lon) {
                         const icon = userIcons[record.username] || defaultIcon;
+                        const popupContent = `
+                            <div class="popup-card">
+                                <img src="/uploads/${record.filename}"
+                                    alt="${record.originalname}"
+                                    class="popup-img"
+                                    onclick="showModal('/uploads/${record.filename}')">
+                                <div class="popup-details">
+                                    <p><strong>Date:</strong> ${record.date_taken ? new Date(record.date_taken).toLocaleDateString() : 'Unknown'}</p>
+                                    <p><strong>Uploaded by:</strong> ${record.username}</p>
+                                    <button onclick="deletePhoto('${record.id}')" class="delete-btn">Delete</button>
+                                </div>
+                            </div>
+                        `
                         const marker = L.marker([record.lat, record.lon], { icon: icon })
                             .addTo(map)
-                            .bindPopup(`
-                                <div class="popup-card">
-                                    <img src="/uploads/${record.filename}"
-                                        alt="${record.originalname}"
-                                        class="popup-img"
-                                        onclick="showModal('/uploads/${record.filename}')">
-                                    <div class="popup-details">
-                                        <p><strong>Date:</strong> ${record.date_taken ? new Date(record.date_taken).toLocaleDateString() : 'Unknown'}</p>
-                                        <p><strong>Uploaded by:</strong> ${record.username}</p>
-                                        <button onclick="deletePhoto('${record.id}')" class="delete-btn">Delete</button>
-                                    </div>
-                                </div>
-                            `);
+                            .bindPopup(popupContent);
                         bounds.extend([record.lat, record.lon]);
                     }
                 });
 
                 if (bounds.isValid()) {
-                    map.fitBounds(bounds);
+                    map.fitBounds(bounds, { padding: [30, 30] });
                 }
             })
-            .catch(error => console.error('Error fetching uploads:', error));
+            .catch(error => {
+                console.error('Error fetching uploads:', error);
+                showToast('Could not load uploads.');
+            });
 
         // Get modal elements
         const modal = document.getElementById('imgModal');
@@ -316,16 +323,16 @@
         const closeBtn = document.getElementsByClassName('close')[0];
 
         // Close when X clicked
-        closeBtn.onclick = function() {
+        closeBtn.onclick = () => {
             modal.style.display = "none";
-        }
+        };
 
         // Close when background clicked
-        modal.onclick = function(event) {
+        modal.onclick = event => {
             if (event.target === modal) {
                 modal.style.display = "none";
             }
-        }
+        };
 
         function showModal(src) {
             modal.style.display = "block";

@@ -1,36 +1,48 @@
+// Loads .env file and attaches variables to process.env
 require('dotenv').config();
-const express = require('express');
-const session = require('express-session');
-const multer = require('multer');
-const fs = require('fs');
-const exifParser = require('exif-parser');
-const { Pool } = require('pg');
-const bcrypt = require('bcrypt');
-const path = require('path');
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+const express = require('express'); // Web server
+const session = require('express-session'); // Session cookies
+const multer = require('multer'); // Handles multipart/form-data for file uploads
+const fs = require('fs'); // Node's built-in file system
+const exifParser = require('exif-parser'); // Pulls GPS metadata from images
+const { Pool } = require('pg'); // PostgreSQL driver
+const bcrypt = require('bcrypt'); // Hash and compare passwords
+const path = require('path'); // Safely build file paths for all OSes
 
+const app = express(); // Creates Express app
+const PORT = process.env.PORT || 3000; // Picks port from .env or defaults to 3000 locally
+
+// Create connection pool to DB
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false // required for Railway's SSL
-  }
+  ssl: process.env.NODE_ENV === 'production'
+    ? { rejectUnauthorized: false }
+    : false // Only add SSL when deployed
 });
+console.log('Connected to Postgres at:', process.env.DATABASE_URL);
 
 // Ensure uploads dir exists
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir);
 }
-// Store uploaded files in /uploads
+
+// Multer stores uploaded files in /uploads
 const upload = multer( { dest: 'uploads/' });
 
+// Parse normal form submits
 app.use(express.urlencoded({ extended: true }));
+
+// Set up cookie-based sessions
 app.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
-    saveUninitialized: false
+    saveUninitialized: false,
+    cookie: {
+        sameSite: 'strict',
+        secure: process.env.NODE_ENV === 'production'
+    }
 }));
 
 // Middleware function that checks if logged in already
@@ -53,6 +65,7 @@ app.post('/upload', requireLogin, upload.array('submission'), async (req, res) =
         let skippedCount = 0;
         let insertedCount = 0;
 
+        // req.files is an array of files
         for (const file of req.files) {
             // Load the uploaded file into memory as a buffer of raw bytes
             const buffer = fs.readFileSync(file.path);
@@ -64,6 +77,7 @@ app.post('/upload', requireLogin, upload.array('submission'), async (req, res) =
             const lat = result.tags.GPSLatitude || null;
             const lon = result.tags.GPSLongitude || null;
 
+            // If no GPS metadata, disregard
             if (!lat || !lon) {
                 skippedCount++;
                 console.log(`No GPS for ${file.originalname} — skipping.`);
@@ -94,6 +108,7 @@ app.post('/upload', requireLogin, upload.array('submission'), async (req, res) =
             }
             
             // Insert only if no duplicate is found
+            // to_timestamp converts UNIX time to SQL timestamp
             const insertQuery = `
                 INSERT INTO photos (user_id, filename, originalname, filepath, lat, lon, date_taken)
                 VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7))
@@ -141,18 +156,18 @@ app.get('/login', (req, res) => {
     if (req.session.user) {
         res.redirect('/map');
     } else {
-        res.sendFile(__dirname + '/login.html');
+        res.sendFile(path.join(__dirname + '/login.html'));
     }
 });
 
 // Protected upload page
 app.get('/upload', requireLogin, (req, res) => {
-    res.sendFile(__dirname + '/upload-page.html');
+    res.sendFile(path.join(__dirname + '/upload-page.html'));
 })
 
 // Protected map page
 app.get('/map', requireLogin, (req, res) => {
-    res.sendFile(__dirname + '/map.html');
+    res.sendFile(path.join(__dirname + '/map.html'));
 })
 
 // Logout route
@@ -196,12 +211,14 @@ app.post('/login', async (req, res) => {
 });
 
 // Serve static assets
-app.use(express.static(__dirname + '/public'));
+app.use(express.static(path.join(__dirname + '/public')));
 
 // Serve uploaded images from /uploads to URLs starting with /uploads
-app.use('/uploads', express.static(__dirname + '/uploads'));
+app.use('/uploads', express.static(path.join(__dirname + '/uploads')));
 
+// Route for deleting photos
 app.post('/delete/:id', requireLogin, async (req, res) => {
+    // Pulls the :id from URL
     const photoId = req.params.id;
 
     try {
@@ -216,9 +233,7 @@ app.post('/delete/:id', requireLogin, async (req, res) => {
         }
 
         const photo = rows[0];
-
-        // Delete file from disk
-        fs.unlinkSync(photo.filepath);
+        safeDelete(photo.filepath);
 
         // Delete from DB
         await pool.query('DELETE FROM photos WHERE id = $1', [photoId]);
@@ -232,8 +247,19 @@ app.post('/delete/:id', requireLogin, async (req, res) => {
 
 // Undefined route, sends 404 page
 app.use((req, res) => {
-    res.status(404).sendFile(__dirname + '/404.html');
+    res.status(404).sendFile(path.join(__dirname + '/404.html'));
 })
+
+// Helper function to safely delete files
+function safeDelete(filepath) {
+    try {
+        if (fs.existsSync(filepath)) {
+            fs.unlinkSync(filepath);
+        }
+    } catch (err) {
+        console.error(`Could not delete ${filepath}:`, err);
+    }
+}
 
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
