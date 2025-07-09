@@ -277,7 +277,7 @@
         fetch('/uploads')
             // Parses response from server into JS array
             .then(response => {
-                if (!res.ok) throw new Error('Network error');
+                if (!response.ok) throw new Error('Network error');
                 return response.json()
             })
             .then(data => {
@@ -290,17 +290,17 @@
                         const icon = userIcons[record.username] || defaultIcon;
                         const popupContent = `
                             <div class="popup-card">
-                                <img src="/uploads/${record.filename}"
+                                <img src="${record.filepath}"
                                     alt="${record.originalname}"
                                     class="popup-img"
-                                    onclick="showModal('/uploads/${record.filename}')">
+                                    onclick="showModal('${record.filepath}')">
                                 <div class="popup-details">
                                     <p><strong>Date:</strong> ${record.date_taken ? new Date(record.date_taken).toLocaleDateString() : 'Unknown'}</p>
                                     <p><strong>Uploaded by:</strong> ${record.username}</p>
                                     <button onclick="deletePhoto('${record.id}')" class="delete-btn">Delete</button>
                                 </div>
                             </div>
-                        `
+                        `;
                         const marker = L.marker([record.lat, record.lon], { icon: icon })
                             .addTo(map)
                             .bindPopup(popupContent);
@@ -357,7 +357,10 @@
         }
 
         function deletePhoto(id) {
-            fetch(`/delete/${id}`, { method: 'POST' })
+            fetch(`/delete/${id}`, { 
+                method: 'POST',
+                credentials: 'same-origin'
+            })
                 .then(res => res.text().then(text => {
                     if (res.ok) {
                         showToast(text);

@@ -140,7 +140,8 @@
 
             const response = await fetch('/upload', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                credentials: 'same-origin'
             });
 
             const result = await response.text();

@@ -109,7 +109,8 @@
             const formData = new FormData(form);
             const response = await fetch('/login', {
                 method: 'POST',
-                body: new URLSearchParams(formData)
+                body: new URLSearchParams(formData),
+                credentials: 'same-origin'
             });
 
             const result = await response.text();

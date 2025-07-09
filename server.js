@@ -9,6 +9,16 @@ const exifParser = require('exif-parser'); // Pulls GPS metadata from images
 const { Pool } = require('pg'); // PostgreSQL driver
 const bcrypt = require('bcrypt'); // Hash and compare passwords
 const path = require('path'); // Safely build file paths for all OSes
+const { S3Client, PutObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+
+// Initialize S3
+const s3 = new S3Client({
+    region: process.env.AWS_REGION,
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+    }
+});
 
 const app = express(); // Creates Express app
 const PORT = process.env.PORT || 3000; // Picks port from .env or defaults to 3000 locally
@@ -16,9 +26,8 @@ const PORT = process.env.PORT || 3000; // Picks port from .env or defaults to 30
 // Create connection pool to DB
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production'
-    ? { rejectUnauthorized: false }
-    : false // Only add SSL when deployed
+  // Railway postgres requires this:
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 console.log('Connected to Postgres at:', process.env.DATABASE_URL);
 
@@ -41,7 +50,8 @@ app.use(session({
     saveUninitialized: false,
     cookie: {
         sameSite: 'strict',
-        secure: process.env.NODE_ENV === 'production'
+        // Guarantees cookies are marked Secure in production so browsers won't drop them
+        secure: process.env.NODE_ENV === 'production' // Requires HTTPS
     }
 }));
 
@@ -106,6 +116,23 @@ app.post('/upload', requireLogin, upload.array('submission'), async (req, res) =
                 fs.unlinkSync(file.path); // Delete the file
                 continue; // Skip insert
             }
+
+            // Upload to S3
+            // Path inside your bucket, guarantees unique names
+            const s3Key = `uploads/${Date.now()}-${file.originalname}`;
+            // Tells AWS how to store the file
+            const uploadParams = {
+                Bucket: process.env.S3_BUCKET,
+                Key: s3Key,
+                Body: buffer,
+                ContentType: file.mimetype // e.g. image/jpeg
+            }
+            await s3.send(new PutObjectCommand(uploadParams));
+            console.log(`Uploaded to S3: ${s3Key}`);
+
+            fs.unlinkSync(file.path); // Remove local temp file
+            // Public HTTP link for the image
+            const s3Url = `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
             
             // Insert only if no duplicate is found
             // to_timestamp converts UNIX time to SQL timestamp
@@ -118,7 +145,7 @@ app.post('/upload', requireLogin, upload.array('submission'), async (req, res) =
                 req.session.user.id,
                 file.filename,
                 file.originalname,
-                file.path,
+                s3Url, // <- insert using s3Url instead of file.path
                 lat,
                 lon,
                 result.tags.CreateDate ? Number(result.tags.CreateDate) : null
@@ -233,7 +260,14 @@ app.post('/delete/:id', requireLogin, async (req, res) => {
         }
 
         const photo = rows[0];
-        safeDelete(photo.filepath);
+
+        // Delete from S3
+        const s3Key = new URL(photo.filepath).pathname.slice(1); // Remove leading /
+        await s3.send(new DeleteObjectCommand({
+            Bucket: process.env.S3_BUCKET,
+            Key: s3Key
+        }));
+        console.log(`Deleted from S3: ${s3Key}`);
 
         // Delete from DB
         await pool.query('DELETE FROM photos WHERE id = $1', [photoId]);
@@ -249,17 +283,6 @@ app.post('/delete/:id', requireLogin, async (req, res) => {
 app.use((req, res) => {
     res.status(404).sendFile(path.join(__dirname + '/404.html'));
 })
-
-// Helper function to safely delete files
-function safeDelete(filepath) {
-    try {
-        if (fs.existsSync(filepath)) {
-            fs.unlinkSync(filepath);
-        }
-    } catch (err) {
-        console.error(`Could not delete ${filepath}:`, err);
-    }
-}
 
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
