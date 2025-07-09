@@ -38,12 +38,7 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 // Multer stores uploaded files in /uploads
-const upload = multer( { 
-    dest: 'uploads/',
-    limits: {
-        fileSize: 5 * 1024 * 1024 // 5 MB max per file
-    } 
-});
+const upload = multer( {  dest: 'uploads/' });
 
 // Parse normal form submits
 app.use(express.urlencoded({ extended: true }));
@@ -81,14 +76,16 @@ app.get('/', (req, res) => {
 // Route for uploaded files
 app.post('/upload', requireLogin, upload.array('submission'), async (req, res) => {
     try {
-        let skippedCount = 0;
+        let duplicateCount = 0;
+        let nonImageCount = 0;
+        let nonGPSCount = 0;
         let insertedCount = 0;
 
         // req.files is an array of files
         for (const file of req.files) {
             // Reject files that are not images
             if (!file.mimetype.startsWith('image/')) {
-                skippedCount++;
+                nonImageCount++;
                 console.log(`Not an image: ${file.originalname} - skipping.`);
                 fs.unlinkSync(file.path);
                 continue; // Skip to next file
@@ -105,7 +102,7 @@ app.post('/upload', requireLogin, upload.array('submission'), async (req, res) =
 
             // If no GPS metadata, disregard
             if (!lat || !lon) {
-                skippedCount++;
+                nonGPSCount++;
                 console.log(`No GPS for ${file.originalname} — skipping.`);
                 fs.unlinkSync(file.path);
                 continue;
@@ -127,7 +124,7 @@ app.post('/upload', requireLogin, upload.array('submission'), async (req, res) =
             const existing = await pool.query(checkQuery, checkValues);
 
             if (existing.rows.length > 0) {
-                skippedCount++;
+                duplicateCount++;
                 console.log(`Duplicate found for ${file.originalname} — skipping insert.`);
                 fs.unlinkSync(file.path); // Delete the file
                 continue; // Skip insert
@@ -171,12 +168,9 @@ app.post('/upload', requireLogin, upload.array('submission'), async (req, res) =
             insertedCount++;
         }
 
-        res.send(`Upload complete! Added: ${insertedCount} Skipped: ${skippedCount}`);
+        res.send(`Upload complete! Added: ${insertedCount} Duplicates: ${duplicateCount} Non photos: ${nonImageCount} No GPS metadata: ${nonGPSCount}`);
 
     } catch (err) {
-        if (err.code === 'LIMIT_FILE_SIZE') {
-            return res.status(400).send('One file or more were too large! Max 5 MB per file.');
-        }
         console.error(err);
         res.status(500).send('Database insert failed.');
     }
