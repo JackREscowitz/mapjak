@@ -38,7 +38,12 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 // Multer stores uploaded files in /uploads
-const upload = multer( { dest: 'uploads/' });
+const upload = multer( { 
+    dest: 'uploads/',
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5 MB max per file
+    } 
+});
 
 // Parse normal form submits
 app.use(express.urlencoded({ extended: true }));
@@ -169,6 +174,9 @@ app.post('/upload', requireLogin, upload.array('submission'), async (req, res) =
         res.send(`Upload complete! Added: ${insertedCount} Skipped: ${skippedCount}`);
 
     } catch (err) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).send('One file or more were too large! Max 5 MB per file.');
+        }
         console.error(err);
         res.status(500).send('Database insert failed.');
     }
