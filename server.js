@@ -43,13 +43,17 @@ const upload = multer( { dest: 'uploads/' });
 // Parse normal form submits
 app.use(express.urlencoded({ extended: true }));
 
+// Tells Express that when you see a header like 
+// "X-Forwarded-Proto: https" believe it, as the connection
+// was actually HTTPS on the outside
+app.set('trust proxy', 1);
 // Set up cookie-based sessions
 app.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
-        sameSite: 'strict',
+        sameSite: 'lax',
         // Guarantees cookies are marked Secure in production so browsers won't drop them
         secure: process.env.NODE_ENV === 'production' // Requires HTTPS
     }
