@@ -291,6 +291,6 @@ app.use((req, res) => {
     res.status(404).sendFile(path.join(__dirname + '/404.html'));
 })
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
