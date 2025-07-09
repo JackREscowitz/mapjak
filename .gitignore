@@ -7,7 +7,7 @@ node_modules/
 # Ignore uploads folder
 uploads/
 
-create-user.js
+hash.js
 
 # Ignore OS-specific junk
 .DS_Store
