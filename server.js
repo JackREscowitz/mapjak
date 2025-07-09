@@ -77,6 +77,13 @@ app.post('/upload', requireLogin, upload.array('submission'), async (req, res) =
 
         // req.files is an array of files
         for (const file of req.files) {
+            // Reject files that are not images
+            if (!file.mimetype.startsWith('image/')) {
+                skippedCount++;
+                console.log(`Not an image: ${file.originalname} - skipping.`);
+                fs.unlinkSync(file.path);
+                continue; // Skip to next file
+            }
             // Load the uploaded file into memory as a buffer of raw bytes
             const buffer = fs.readFileSync(file.path);
             // Create an EXIF parser from the binary
