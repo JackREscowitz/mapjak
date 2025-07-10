@@ -339,8 +339,12 @@
 
                 // Create the cluster group
                 const markers = L.markerClusterGroup({
+                    showCoverageOnHover: false,
                     iconCreateFunction: function (cluster) {
-                        const count = cluster.getChildCount();
+                        let count = cluster.getChildCount();
+                        if (count > 999) {
+                            count = '999+';
+                        }
                         const childMarkers = cluster.getAllChildMarkers();
 
                         // Pick random child marker to be thumbnail
