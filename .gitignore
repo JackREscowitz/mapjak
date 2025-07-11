@@ -12,3 +12,8 @@ hash.js
 # Ignore OS-specific junk
 .DS_Store
 Thumbs.db
+
+# Backup files
+backups/
+*.sql
+*.zip
