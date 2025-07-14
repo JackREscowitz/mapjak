@@ -30,7 +30,7 @@
 
 1. **Clone**
    ```bash
-   git clone https://github.com/yourusername/mapjak.git
+   git clone https://github.com/JackREscowitz/mapjak.git
    cd mapjak
    ```
 
@@ -93,9 +93,6 @@
 ## ✅ To Do (Future)
 
 * Add user registration flow.
-* Add file size limit for uploads.
-* Add HTTPS + custom domain.
-* Improve map UI (clustering, filters).
 
 ---
 
