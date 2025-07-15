@@ -103,7 +103,53 @@
             margin-top: 1rem;
             font-weight: bold;
             color: #333;
+            text-align: left;
+            white-space: normal;
+            line-height: 1.5;
         }
+
+        #loading-spinner {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            margin-top: 0.5rem;
+            font-weight: normal;
+            color: #333;
+            font-size: 0.9rem;
+            line-height: 1;
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(0,0,0,0.1);
+            border-top: 2px solid #333;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .spinner-text {
+            display: inline-block;
+            vertical-align: middle;
+            line-height: 1;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        #uploadStatus {
+            margin-top: 1rem;
+            font-weight: bold;
+            color: #333;
+            text-align: left;
+            white-space: normal;
+            line-height: 1.4;
+        }
+
 
     </style>
 </head>
@@ -121,7 +167,11 @@
             <h2>Upload a photo</h2>
             <form id="uploadForm" enctype="multipart/form-data">
                 <input type="file" name="submission" multiple>
-                <input type="submit" value="Submit">
+                <input type="submit" id="submit-button" value="Submit">
+                <div id="loading-spinner" style="display: none;">
+                    <div class="spinner"></div>
+                    <div class="spinner-text">Uploading...</div>
+                </div>
             </form>
 
             <p id="uploadStatus"></p>
@@ -136,6 +186,12 @@
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
 
+            const submitBtn = document.getElementById('submit-button');
+            const spinner = document.getElementById('loading-spinner');
+
+            submitBtn.disabled = true;
+            spinner.style.display = 'block';
+
             const formData = new FormData(form);
 
             const response = await fetch('/upload', {
@@ -144,10 +200,39 @@
                 credentials: 'same-origin'
             });
 
-            const result = await response.text();
-            status.textContent = result; // Success message
+            let result;
+            try {
+                result = await response.json();
+            } catch (e) {
+                status.textContent = 'Upload failed - unexpected server error.';
+                submitBtn.disabled = false;
+                spinner.style.display = 'none';
+                return;
+            }
+            
+            let html = '';
+
+            if (result.success && result.success.length > 0) {
+                html += `<div><strong>Uploaded:</strong><ul style="margin: 0.25rem 0 0 1.2rem;">`;
+                result.success.forEach(name => {
+                    html += `<li>${name}</li>`;
+                });
+                html += `</ul>`;
+            }
+            if (result.failed && result.failed.length > 0) {
+                html += `<div><strong>Failed:</strong><ul style="margin: 0.25rem 0 0 1.2rem;">`;
+                result.failed.forEach(f => {
+                    html += `<li>${f.filename}: ${f.reason}</li>`;
+                });
+                html += `</ul>`;
+            }
+
+            status.innerHTML = html;
 
             form.reset(); // Clear file input so user can submit again
+
+            submitBtn.disabled = false;
+            spinner.style.display = 'none';
         })
     </script>
 </body>

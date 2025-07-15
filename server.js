@@ -43,6 +43,8 @@ const upload = multer( {  dest: 'uploads/' });
 // Parse normal form submits
 app.use(express.urlencoded({ extended: true }));
 
+app.use(express.json());
+
 // Tells Express that when you see a header like 
 // "X-Forwarded-Proto: https" believe it, as the connection
 // was actually HTTPS on the outside
@@ -76,17 +78,14 @@ app.get('/', (req, res) => {
 // Route for uploaded files
 app.post('/upload', requireLogin, upload.array('submission'), async (req, res) => {
     try {
-        let duplicateCount = 0;
-        let nonImageCount = 0;
-        let nonGPSCount = 0;
-        let insertedCount = 0;
+        const success = [];
+        const failed = [];
 
         // req.files is an array of files
         for (const file of req.files) {
             // Reject files that are not images
             if (!file.mimetype.startsWith('image/')) {
-                nonImageCount++;
-                console.log(`Not an image: ${file.originalname} - skipping.`);
+                failed.push({ filename: file.originalname, reason: 'Not an image file.' });
                 fs.unlinkSync(file.path);
                 continue; // Skip to next file
             }
@@ -102,8 +101,7 @@ app.post('/upload', requireLogin, upload.array('submission'), async (req, res) =
 
             // If no GPS metadata, disregard
             if (!lat || !lon) {
-                nonGPSCount++;
-                console.log(`No GPS for ${file.originalname} — skipping.`);
+                failed.push({ filename: file.originalname, reason: 'Missing GPS metadata' });
                 fs.unlinkSync(file.path);
                 continue;
             }
@@ -124,51 +122,55 @@ app.post('/upload', requireLogin, upload.array('submission'), async (req, res) =
             const existing = await pool.query(checkQuery, checkValues);
 
             if (existing.rows.length > 0) {
-                duplicateCount++;
-                console.log(`Duplicate found for ${file.originalname} — skipping insert.`);
+                failed.push({ filename: file.originalname, reason: 'Duplicate photo' });
                 fs.unlinkSync(file.path); // Delete the file
                 continue; // Skip insert
             }
 
             // Upload to S3
             // Path inside your bucket, guarantees unique names
-            const s3Key = `uploads/${Date.now()}-${file.originalname}`;
-            // Tells AWS how to store the file
-            const uploadParams = {
-                Bucket: process.env.S3_BUCKET,
-                Key: s3Key,
-                Body: buffer,
-                ContentType: file.mimetype // e.g. image/jpeg
+            try {
+                const s3Key = `uploads/${Date.now()}-${file.originalname}`;
+                // Tells AWS how to store the file
+                const uploadParams = {
+                    Bucket: process.env.S3_BUCKET,
+                    Key: s3Key,
+                    Body: buffer,
+                    ContentType: file.mimetype // e.g. image/jpeg
+                }
+                await s3.send(new PutObjectCommand(uploadParams));
+                console.log(`Uploaded to S3: ${s3Key}`);
+
+                fs.unlinkSync(file.path); // Remove local temp file
+                // Public HTTP link for the image
+                const s3Url = `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
+            
+                // Insert only if no duplicate is found
+                // to_timestamp converts UNIX time to SQL timestamp
+                const insertQuery = `
+                    INSERT INTO photos (user_id, filename, originalname, filepath, lat, lon, date_taken)
+                    VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7))
+                `;
+
+                const insertValues = [
+                    req.session.user.id,
+                    file.filename,
+                    file.originalname,
+                    s3Url, // <- insert using s3Url instead of file.path
+                    lat,
+                    lon,
+                    result.tags.CreateDate ? Number(result.tags.CreateDate) : null
+                ];
+                
+                await pool.query(insertQuery, insertValues);
+                success.push(file.originalname);
+            } catch (err) {
+                console.error(err);
+                failed.push({ filename: file.originalname, reason: 'Upload or DB error' });
             }
-            await s3.send(new PutObjectCommand(uploadParams));
-            console.log(`Uploaded to S3: ${s3Key}`);
-
-            fs.unlinkSync(file.path); // Remove local temp file
-            // Public HTTP link for the image
-            const s3Url = `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
-            
-            // Insert only if no duplicate is found
-            // to_timestamp converts UNIX time to SQL timestamp
-            const insertQuery = `
-                INSERT INTO photos (user_id, filename, originalname, filepath, lat, lon, date_taken)
-                VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7))
-            `;
-
-            const insertValues = [
-                req.session.user.id,
-                file.filename,
-                file.originalname,
-                s3Url, // <- insert using s3Url instead of file.path
-                lat,
-                lon,
-                result.tags.CreateDate ? Number(result.tags.CreateDate) : null
-            ];
-            
-            await pool.query(insertQuery, insertValues);
-            insertedCount++;
         }
 
-        res.send(`Upload complete! Added: ${insertedCount} Duplicates: ${duplicateCount} Non photos: ${nonImageCount} No GPS metadata: ${nonGPSCount}`);
+        res.json({ success, failed });
 
     } catch (err) {
         console.error(err);
