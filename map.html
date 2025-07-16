@@ -257,7 +257,7 @@
         <h1>Mapjak</h1>
         <nav>
             <button onclick="window.location.href='/upload'" class="nav-btn">Upload</button>
-            <button onclick="window.location.href='/map'" class="nav-btn">Map</button>
+            <button onclick="if (window.location.pathname !== '/map/') window.location.href='/map'" class="nav-btn">Map</button>
             <button onclick="window.location.href='/logout'" class="nav-btn">Log Out</button>
         </nav>
     </header>
@@ -275,152 +275,9 @@
 
     <!-- Leaflet JS -->
     <script>
-        // Initialize the map
-        const map = L.map('map').setView([0, 0], 2);
 
-        // Icons
-        const userIcons = {
-            "Jack Escowitz": L.divIcon({
-                html: `<div class="custom-pin" style="background-image: url('/icons/jack-escowitz-pfp.png')"></div>`,
-                className: '',
-                iconSize: [30, 30],
-                iconAnchor: [15, 30],
-                popupAnchor: [0, -30]
-            }),
-            "Austin Zhao": L.divIcon({
-                html: `<div class="custom-pin" style="background-image: url('/icons/austin-zhao-pfp.png')"></div>`,
-                className: '',
-                iconSize: [30, 30],
-                iconAnchor: [15, 30],
-                popupAnchor: [0, -30]
-            }),
-            "Matthew Beissel": L.divIcon({
-                html: `<div class="custom-pin" style="background-image: url('/icons/matthew-beissel-pfp.png')"></div>`,
-                className: '',
-                iconSize: [30, 30],
-                iconAnchor: [15, 30],
-                popupAnchor: [0, -30]
-            }),
-            "Yash Sriram": L.divIcon({
-                html: `<div class="custom-pin" style="background-image: url('/icons/yash-sriram-pfp.png')"></div>`,
-                className: '',
-                iconSize: [30, 30],
-                iconAnchor: [15, 30],
-                popupAnchor: [0, -30]
-            }),
-        }
-
-        const defaultIcon = L.icon({
-            iconUrl: '/icons/default-pin.png',
-            iconSize: [30, 30],
-            iconAnchor: [15, 30],
-            popupAnchor: [0, -30]
-        })
-
-        // Add a tile layer
-        L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}@2x?access_token={accessToken}', {
-            id: 'mapbox/streets-v12',
-            tileSize: 256,
-            accessToken: 'pk.eyJ1IjoiamFja21hcGphayIsImEiOiJjbWN1dTdocXEwM3FrMm1vYm9uempxdjY4In0.3tyl4kFp2e6UN-i9ni6EyA',
-            attribution: '© Mapbox © OpenStreetMap'
-        }).addTo(map);
-
-        // Fetch uploads JSON
-        fetch('/uploads')
-            // Parses response from server into JS array
-            .then(response => {
-                if (!response.ok) throw new Error('Network error');
-                return response.json()
-            })
-            .then(data => {
-
-                // Create an empty bounds box
-                const bounds = L.latLngBounds();
-
-                // Create the cluster group
-                const markers = L.markerClusterGroup({
-                    spiderLegPolylineOptions: { weight: 0 },
-                    maxClusterRadius: 30,
-                    showCoverageOnHover: false,
-                    iconCreateFunction: function (cluster) {
-                        let count = cluster.getChildCount();
-                        if (count > 999) {
-                            count = '999+';
-                        }
-                        const childMarkers = cluster.getAllChildMarkers();
-
-                        // Pick random child marker to be thumbnail
-                        const randomIndex = Math.floor(Math.random() * childMarkers.length);
-                        const randomMarker = childMarkers[randomIndex];
-
-                        const thumbUrl = randomMarker.photoUrl || '/icons/default-pin.png';
-                        
-                        return L.divIcon({
-                            html: `
-                                <div class="custom-cluster" style="background-image: url('${thumbUrl}')">
-                                    <span class="cluster-count">${count}</span>
-                                </div>
-                            `,
-                            className: '', // Disable default cluster style
-                            iconSize: [40, 40]
-                        })
-                    }
-                });
-
-                data.forEach(record => {
-                    if (record.lat && record.lon) {
-                        const icon = userIcons[record.username] || defaultIcon;
-                        const popupContent = `
-                            <div class="popup-card">
-                                <img src="${record.filepath}"
-                                    alt="${record.originalname}"
-                                    class="popup-img"
-                                    onclick="showModal('${record.filepath}')">
-                                <div class="popup-details">
-                                    <p><strong>Date:</strong> ${record.date_taken ? new Date(record.date_taken).toLocaleDateString() : 'Unknown'}</p>
-                                    <p><strong>Uploaded by:</strong> ${record.username}</p>
-                                    <button onclick="deletePhoto('${record.id}')" class="delete-btn">Delete</button>
-                                </div>
-                            </div>
-                        `;
-
-                        const marker = L.marker([record.lat, record.lon], { icon: icon })
-                        marker.photoUrl = record.filepath; // Save photo URL data in the marker
-                        marker.bindPopup(popupContent);
-                        markers.addLayer(marker); // Add each marker to the cluster
-                        bounds.extend([record.lat, record.lon]);
-                    }
-                });
-
-                map.addLayer(markers); // Add whole cluster group to map
-
-                if (bounds.isValid()) {
-                    map.fitBounds(bounds, { padding: [30, 30] });
-                }
-
-                // TODO: handle cluster clicks
-            })
-            .catch(error => {
-                console.error('Error fetching uploads:', error);
-                showToast('Could not load uploads.');
-            });
-
-        // Get modal elements
         const modal = document.getElementById('imgModal');
         const modalImg = document.getElementById('modalImage');
-        const closeBtn = document.getElementsByClassName('close')[0];
-
-        // Close when X clicked
-        closeBtn.onclick = () => {
-            modal.style.display = "none";
-        };
-
-        // Close when background clicked
-        modal.onclick = event => {
-            if (event.target === modal) {
-                modal.style.display = "none";
-            }
-        };
 
         function showModal(src) {
             modal.style.display = "block";
@@ -463,9 +320,150 @@
                 });
         }
 
+        window.addEventListener('load', () => {
 
-        
-        
+            // Initialize the map
+            const map = L.map('map').setView([0, 0], 2);
+
+            // Icons
+            const userIcons = {
+                "Jack Escowitz": L.divIcon({
+                    html: `<div class="custom-pin" style="background-image: url('/icons/jack-escowitz-pfp.png')"></div>`,
+                    className: '',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 30],
+                    popupAnchor: [0, -30]
+                }),
+                "Austin Zhao": L.divIcon({
+                    html: `<div class="custom-pin" style="background-image: url('/icons/austin-zhao-pfp.png')"></div>`,
+                    className: '',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 30],
+                    popupAnchor: [0, -30]
+                }),
+                "Matthew Beissel": L.divIcon({
+                    html: `<div class="custom-pin" style="background-image: url('/icons/matthew-beissel-pfp.png')"></div>`,
+                    className: '',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 30],
+                    popupAnchor: [0, -30]
+                }),
+                "Yash Sriram": L.divIcon({
+                    html: `<div class="custom-pin" style="background-image: url('/icons/yash-sriram-pfp.png')"></div>`,
+                    className: '',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 30],
+                    popupAnchor: [0, -30]
+                }),
+            }
+
+            const defaultIcon = L.icon({
+                iconUrl: '/icons/default-pin.png',
+                iconSize: [30, 30],
+                iconAnchor: [15, 30],
+                popupAnchor: [0, -30]
+            })
+
+            // Add a tile layer
+            L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors & Stadia Maps',
+                maxZoom: 20,
+                detectRetina: true
+            }).addTo(map);
+
+            // Fetch uploads JSON
+            fetch('/uploads')
+                // Parses response from server into JS array
+                .then(response => {
+                    if (!response.ok) throw new Error('Network error');
+                    return response.json()
+                })
+                .then(data => {
+
+                    // Create an empty bounds box
+                    const bounds = L.latLngBounds();
+
+                    // Create the cluster group
+                    const markers = L.markerClusterGroup({
+                        spiderLegPolylineOptions: { weight: 0 },
+                        maxClusterRadius: 30,
+                        showCoverageOnHover: false,
+                        iconCreateFunction: function (cluster) {
+                            let count = cluster.getChildCount();
+                            if (count > 999) {
+                                count = '999+';
+                            }
+                            const childMarkers = cluster.getAllChildMarkers();
+
+                            // Pick random child marker to be thumbnail
+                            const randomIndex = Math.floor(Math.random() * childMarkers.length);
+                            const randomMarker = childMarkers[randomIndex];
+
+                            const thumbUrl = randomMarker.photoUrl || '/icons/default-pin.png';
+                            
+                            return L.divIcon({
+                                html: `
+                                    <div class="custom-cluster" style="background-image: url('${thumbUrl}')">
+                                        <span class="cluster-count">${count}</span>
+                                    </div>
+                                `,
+                                className: '', // Disable default cluster style
+                                iconSize: [40, 40]
+                            })
+                        }
+                    });
+
+                    data.forEach(record => {
+                        if (record.lat && record.lon) {
+                            const icon = userIcons[record.username] || defaultIcon;
+                            const popupContent = `
+                                <div class="popup-card">
+                                    <img src="${record.filepath}"
+                                        alt="${record.originalname}"
+                                        class="popup-img"
+                                        onclick="showModal('${record.filepath}')">
+                                    <div class="popup-details">
+                                        <p><strong>Date:</strong> ${record.date_taken ? new Date(record.date_taken).toLocaleDateString() : 'Unknown'}</p>
+                                        <p><strong>Uploaded by:</strong> ${record.username}</p>
+                                        <button onclick="deletePhoto('${record.id}')" class="delete-btn">Delete</button>
+                                    </div>
+                                </div>
+                            `;
+
+                            const marker = L.marker([record.lat, record.lon], { icon: icon })
+                            marker.photoUrl = record.filepath; // Save photo URL data in the marker
+                            marker.bindPopup(popupContent);
+                            markers.addLayer(marker); // Add each marker to the cluster
+                            bounds.extend([record.lat, record.lon]);
+                        }
+                    });
+
+                    map.addLayer(markers); // Add whole cluster group to map
+
+                    if (bounds.isValid()) {
+                        map.fitBounds(bounds, { padding: [30, 30] });
+                    }
+
+                })
+                .catch(error => {
+                    console.error('Error fetching uploads:', error);
+                    showToast('Could not load uploads.');
+                });
+
+            const closeBtn = document.getElementsByClassName('close')[0];
+
+            // Close when X clicked
+            closeBtn.onclick = () => {
+                modal.style.display = "none";
+            };
+
+            // Close when background clicked
+            modal.onclick = event => {
+                if (event.target === modal) {
+                    modal.style.display = "none";
+                }
+            };
+        });
 
     </script>
 </body>
