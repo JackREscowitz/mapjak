@@ -365,10 +365,11 @@
             })
 
             // Add a tile layer
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
                 attribution: '&copy; OpenStreetMap contributors & Carto',
                 subdomains: 'abcd',
-                maxZoom: 20
+                maxZoom: 17,
+                detectRetina: false
             }).addTo(map);
 
             // Fetch uploads JSON
@@ -386,7 +387,7 @@
                     // Create the cluster group
                     const markers = L.markerClusterGroup({
                         spiderLegPolylineOptions: { weight: 0 },
-                        maxClusterRadius: 30,
+                        maxClusterRadius: 40,
                         showCoverageOnHover: false,
                         iconCreateFunction: function (cluster) {
                             let count = cluster.getChildCount();
@@ -420,6 +421,7 @@
                                 <div class="popup-card">
                                     <img src="${record.filepath}"
                                         alt="${record.originalname}"
+                                        loading="lazy"
                                         class="popup-img"
                                         onclick="showModal('${record.filepath}')">
                                     <div class="popup-details">
