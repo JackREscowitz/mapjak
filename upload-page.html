@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
     <title>Mapjak - File Upload</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap" rel="stylesheet">
     
@@ -152,6 +154,50 @@
             opacity: 0.8;
         }
 
+        @media (max-width: 600px) {
+            .site-header {
+                flex-direction: column;
+                align-items: center;
+                gap: 0.5rem;
+                padding: 1rem;
+            }
+
+            .site-header h1 {
+                display: none;
+            }
+
+            nav {
+                justify-content: center;
+                width: 100%;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+
+            .nav-btn {
+                flex: 1 1 auto;
+                font-size: 0.9rem;
+                padding: 0.4rem 0.75rem;
+                text-align: center;
+            }
+
+            .upload-card {
+                width: 95%;
+                padding: 1.5rem;
+                font-size: 0.95rem;
+            }
+
+            .upload-card input[type="file"],
+            .upload-card input[type="submit"] {
+                width: 100%;
+                font-size: 0.9rem;
+                padding: 0.6rem 1rem;
+            }
+
+            #uploadStatus {
+                font-size: 0.7rem;
+            }
+        }
 
     </style>
 </head>

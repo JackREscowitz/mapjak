@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <title>Mapjak - Map</title>
 
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <!--Must include Leaflet CSS in head-->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
@@ -241,6 +243,34 @@
         .toast.hide {
             opacity: 0;
             transform: translateY(-50%, 10px);
+        }
+
+        @media (max-width: 600px) {
+            .site-header {
+                flex-direction: column;
+                align-items: center;
+                gap: 0.5rem;
+                padding: 1rem;
+            }
+
+            .site-header h1 {
+                display: none;
+            }
+
+            nav {
+                justify-content: center;
+                width: 100%;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+
+            .nav-btn {
+                flex: 1 1 auto;
+                font-size: 0.9rem;
+                padding: 0.4rem 0.75rem;
+                text-align: center;
+            }
         }
 
     </style>
