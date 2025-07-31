@@ -26,10 +26,10 @@ jobs:
         sudo apt-get install -y postgresql-client awscli
 
     - name: Run DB Backup
-      run: bash backup_db.sh
+      run: bash scripts/backup_db.sh
 
     - name: Run S3 Backup
-      run: bash backup_s3.sh
+      run: bash scripts/backup_s3.sh
 
     - name: Archive and upload backup artifact
       uses: actions/upload-artifact@v4
