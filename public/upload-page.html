@@ -1,287 +1,215 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Mapjak - File Upload</title>
+  <meta charset="UTF-8" />
+  <title>Mapjak - Upload</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap" rel="stylesheet">
-    
-    <style>
-        *, *::before, *::after {
-            box-sizing: border-box;
-        }
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap" rel="stylesheet">
 
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-        }
+  <style>
+    /* === Reset & Base === */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; padding: 0; }
 
-        body {
-            font-family: 'Segoe UI', 'Manrope', 'Noto Sans', 'Arial Rounded MT Bold', Arial, sans-serif;
-            margin: 0;
-            background: linear-gradient(to bottom right, #e0f7fa, #ffffff);
-        }
+    body {
+      font-family: 'Segoe UI', 'Manrope', sans-serif;
+      background: linear-gradient(to bottom right, #e0f7fa, #ffffff);
+    }
 
-        .site-header {
-            background: linear-gradient(to right, #b3e5fc, #e1f5fe);
-            color: #333;
-            padding: 0.5rem 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            border-bottom: 1px solid #b3e5fc;
-        }
+    /* === Header === */
+    .site-header {
+      background: linear-gradient(to right, #b3e5fc, #e1f5fe);
+      color: #333;
+      padding: 0.5rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      border-bottom: 1px solid #b3e5fc;
+    }
+    .site-header h1 { margin: 0; font-weight: 400; font-size: 1.2rem; }
+    nav { display: flex; gap: 0.5rem; }
+    .nav-btn {
+      background: linear-gradient(to bottom, rgba(255,255,255,0.6), rgba(255,255,255,0.2));
+      border: none;
+      color: #333;
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+      transition: background 0.3s, transform 0.1s;
+    }
+    .nav-btn:hover {
+      background: linear-gradient(to bottom, rgba(255,255,255,0.8), rgba(255,255,255,0.3));
+      transform: translateY(-1px);
+    }
 
-        .site-header h1 {
-            margin: 0;
-            font-weight: 400;
-            font-size: 1.2rem;
-        }
+    /* === Layout === */
+    main { padding: 2rem; }
+    .upload-card {
+      background: rgba(255,255,255,0.6);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      max-width: 500px;
+      margin: 2rem auto;
+      padding: 2rem;
+      text-align: center;
+    }
 
-        .nav-btn {
-            background: linear-gradient(to bottom, rgba(255,255,255,0.6), rgba(255,255,255,0.2));
-            border: none;
-            color: #333;
-            padding: 0.5rem 1rem;
-            margin-left: 0.5rem;
-            border-radius: 9999px;
-            cursor: pointer;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
-            transition: background 0.3s, transform 0.1s;
-        }
+    /* === Form Inputs === */
+    .upload-card input[type="file"],
+    .upload-card input[type="submit"] {
+      font-family: inherit;
+      max-width: 250px;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      cursor: pointer;
+      margin: 0.5rem 0;
+    }
+    .upload-card input[type="file"] {
+      background: white;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .upload-card input[type="submit"] {
+      background: linear-gradient(to bottom, rgba(255,255,255,0.8), rgba(255,255,255,0.4));
+      color: #333;
+      font-weight: bold;
+      transition: background 0.3s;
+    }
+    .upload-card input[type="submit"]:hover {
+      background: linear-gradient(to bottom, rgba(255,255,255,1), rgba(255,255,255,0.6));
+    }
 
-        .nav-btn:hover {
-            background: linear-gradient(to bottom, rgba(255,255,255,0.8), rgba(255,255,255,0.3));
-            transform: translateY(-1px);
-        }
+    /* === Spinner === */
+    #loading-spinner {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      color: #333;
+    }
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(0,0,0,0.1);
+      border-top: 2px solid #333;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-        main {
-            padding: 2rem;
-        }
+    /* === Status Text === */
+    #uploadStatus {
+      margin-top: 1rem;
+      font-weight: normal;
+      color: #333;
+      text-align: left;
+      line-height: 1.3;
+      font-size: 0.75rem;
+      opacity: 0.8;
+    }
 
-        .upload-card {
-            background: rgba(255, 255, 255, 0.6); 
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-            max-width: 500px;
-            margin: 2rem auto;
-            padding: 2rem;
-            text-align: center;
-        }
-
-        .upload-card input[type="file"],
-        .upload-card input[type="submit"] {
-            font-family: inherit;
-            max-width: 250px;
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 9999px;
-            cursor: pointer;
-            margin: 0.5rem 0;
-        }
-
-        .upload-card input[type="file"] {
-            background: white;
-            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
-            border-radius: 9999px;
-        }
-
-        .upload-card input[type="submit"] {
-            background: linear-gradient(to bottom, rgba(255,255,255,0.8), rgba(255,255,255,0.4));
-            color: #333;
-            font-weight: bold;
-            transition: background 0.3s;
-        }
-
-        .upload-card input[type="submit"]:hover {
-            background: linear-gradient(to bottom, rgba(255,255,255,1), rgba(255,255,255,0.6));
-        }
-
-        #uploadStatus {
-            margin-top: 1rem;
-            font-weight: bold;
-            color: #333;
-            text-align: left;
-            white-space: normal;
-            line-height: 1.5;
-        }
-
-        #loading-spinner {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.4rem;
-            margin-top: 0.5rem;
-            font-weight: normal;
-            color: #333;
-            font-size: 0.9rem;
-            line-height: 1;
-        }
-
-        .spinner {
-            width: 16px;
-            height: 16px;
-            border: 2px solid rgba(0,0,0,0.1);
-            border-top: 2px solid #333;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            display: inline-block;
-            vertical-align: middle;
-        }
-
-        .spinner-text {
-            display: inline-block;
-            vertical-align: middle;
-            line-height: 1;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        #uploadStatus {
-            margin-top: 1rem;
-            font-weight: normal;
-            color: #333;
-            text-align: left;
-            white-space: normal;
-            line-height: 1.3;
-            font-size: 0.75rem; 
-            opacity: 0.8;
-        }
-
-        @media (max-width: 600px) {
-            .site-header {
-                flex-direction: column;
-                align-items: center;
-                gap: 0.5rem;
-                padding: 1rem;
-            }
-
-            .site-header h1 {
-                display: none;
-            }
-
-            nav {
-                justify-content: center;
-                width: 100%;
-                display: flex;
-                flex-wrap: wrap;
-                gap: 0.5rem;
-            }
-
-            .nav-btn {
-                flex: 1 1 auto;
-                font-size: 0.9rem;
-                padding: 0.4rem 0.75rem;
-                text-align: center;
-            }
-
-            .upload-card {
-                width: 95%;
-                padding: 1.5rem;
-                font-size: 0.95rem;
-            }
-
-            .upload-card input[type="file"],
-            .upload-card input[type="submit"] {
-                width: 100%;
-                font-size: 0.9rem;
-                padding: 0.6rem 1rem;
-            }
-
-            #uploadStatus {
-                font-size: 0.7rem;
-            }
-        }
-
-    </style>
+    /* === Responsive === */
+    @media (max-width: 600px) {
+      .site-header {
+        flex-direction: column; align-items: center;
+        gap: 0.5rem; padding: 1rem;
+      }
+      .site-header h1 { display: none; }
+      nav { justify-content: center; width: 100%; flex-wrap: wrap; gap: 0.5rem; }
+      .nav-btn {
+        flex: 1; font-size: 0.9rem;
+        padding: 0.4rem 0.75rem;
+      }
+      .upload-card {
+        width: 95%; padding: 1.5rem; font-size: 0.95rem;
+      }
+      .upload-card input[type="file"],
+      .upload-card input[type="submit"] {
+        width: 100%; font-size: 0.9rem; padding: 0.6rem 1rem;
+      }
+      #uploadStatus { font-size: 0.7rem; }
+    }
+  </style>
 </head>
 <body>
-    <header class="site-header">
-        <h1>Mapjak</h1>
-        <nav>
-            <button onclick="window.location.href='/upload'" class="nav-btn">Upload</button>
-            <button onclick="window.location.href='/map'" class="nav-btn">Map</button>
-            <button onclick="window.location.href='/logout'" class="nav-btn">Log Out</button>
-        </nav>
-    </header>
-    <main>
-        <div class="upload-card">
-            <h2>Upload a photo</h2>
-            <form id="uploadForm" enctype="multipart/form-data">
-                <input type="file" name="submission" multiple>
-                <input type="submit" id="submit-button" value="Submit">
-                <div id="loading-spinner" style="display: none;">
-                    <div class="spinner"></div>
-                    <div class="spinner-text">Uploading...</div>
-                </div>
-            </form>
+  <header class="site-header">
+    <h1>Mapjak</h1>
+    <nav>
+      <button onclick="window.location.href='/upload'" class="nav-btn">Upload</button>
+      <button onclick="window.location.href='/map'" class="nav-btn">Map</button>
+      <button onclick="window.location.href='/logout'" class="nav-btn">Log Out</button>
+    </nav>
+  </header>
 
-            <p id="uploadStatus"></p>
+  <main>
+    <div class="upload-card">
+      <h2>Upload a photo</h2>
+      <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" name="submission" multiple>
+        <input type="submit" id="submit-button" value="Submit">
+        <div id="loading-spinner">
+          <div class="spinner"></div>
+          <div>Uploading...</div>
         </div>
-    </main>
+      </form>
+      <p id="uploadStatus"></p>
+    </div>
+  </main>
 
-    <script>
-        // Front JS for success message and multiple submissions
-        const form = document.getElementById('uploadForm');
-        const status = document.getElementById('uploadStatus');
+  <script>
+    // Handle upload form submission
+    const form = document.getElementById('uploadForm');
+    const status = document.getElementById('uploadStatus');
+    const submitBtn = document.getElementById('submit-button');
+    const spinner = document.getElementById('loading-spinner');
 
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
 
-            const submitBtn = document.getElementById('submit-button');
-            const spinner = document.getElementById('loading-spinner');
+      submitBtn.disabled = true;
+      spinner.style.display = 'flex';
 
-            submitBtn.disabled = true;
-            spinner.style.display = 'block';
+      const formData = new FormData(form);
+      let result;
 
-            const formData = new FormData(form);
+      try {
+        const res = await fetch('/upload', {
+          method: 'POST',
+          body: formData,
+          credentials: 'same-origin'
+        });
+        result = await res.json();
+      } catch (err) {
+        status.textContent = 'Upload failed - unexpected server error.';
+        submitBtn.disabled = false;
+        spinner.style.display = 'none';
+        return;
+      }
 
-            const response = await fetch('/upload', {
-                method: 'POST',
-                body: formData,
-                credentials: 'same-origin'
-            });
+      let html = '';
 
-            let result;
-            try {
-                result = await response.json();
-            } catch (e) {
-                status.textContent = 'Upload failed - unexpected server error.';
-                submitBtn.disabled = false;
-                spinner.style.display = 'none';
-                return;
-            }
-            
-            let html = '';
+      if (result.success?.length) {
+        html += `<div><strong>Uploaded:</strong><ul style="margin:0.25rem 0 0 1.2rem;">`;
+        result.success.forEach(name => html += `<li>${name}</li>`);
+        html += `</ul></div>`;
+      }
+      if (result.failed?.length) {
+        html += `<div><strong>Failed:</strong><ul style="margin:0.25rem 0 0 1.2rem;">`;
+        result.failed.forEach(f => html += `<li>${f.filename}: ${f.reason}</li>`);
+        html += `</ul></div>`;
+      }
 
-            if (result.success && result.success.length > 0) {
-                html += `<div><strong>Uploaded:</strong><ul style="margin: 0.25rem 0 0 1.2rem;">`;
-                result.success.forEach(name => {
-                    html += `<li>${name}</li>`;
-                });
-                html += `</ul>`;
-            }
-            if (result.failed && result.failed.length > 0) {
-                html += `<div><strong>Failed:</strong><ul style="margin: 0.25rem 0 0 1.2rem;">`;
-                result.failed.forEach(f => {
-                    html += `<li>${f.filename}: ${f.reason}</li>`;
-                });
-                html += `</ul>`;
-            }
-
-            status.innerHTML = html;
-
-            form.reset(); // Clear file input so user can submit again
-
-            submitBtn.disabled = false;
-            spinner.style.display = 'none';
-        })
-    </script>
+      status.innerHTML = html;
+      form.reset();
+      submitBtn.disabled = false;
+      spinner.style.display = 'none';
+    });
+  </script>
 </body>
 </html>
