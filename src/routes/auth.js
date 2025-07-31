@@ -7,6 +7,9 @@
  *   GET  /login   - Serve login page or redirect if already logged in
  *   POST /login   - Authenticate user credentials and start a session
  *   GET  /logout  - Destroy the current session and redirect to /login
+ * 
+ * Middleware:
+ *   requireLogin - ensures that certain pages are accessible only to logged-in users
  *
  * Notes:
  *   - Passwords are verified using bcrypt against hashed passwords stored in the DB.
@@ -20,6 +23,7 @@ const bcrypt = require('bcrypt');
 
 const pool = require('../db/pool');
 const { rootDir } = require('../utils/paths');
+const requireLogin = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
@@ -100,6 +104,11 @@ router.get('/logout', (req, res) => {
     req.session.destroy(() => {
         res.redirect('/login');
     });
+});
+
+
+router.get('/me', requireLogin, (req, res) => {
+  res.json({ username: req.session.user.username });
 });
 
 module.exports = router;

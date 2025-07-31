@@ -1,0 +1,13 @@
+Screen that you can expand at the bottom of the map page that allows you to place a bounty marker
+For now, let's establish a limit of 10 bounties per user so they have to be of high significance
+Screen should have a 'place bounty' button that toggles it so when you click the map it places it down
+Button should become 'cancel' when in place mode. 
+Screen should track how many bounties have been used (10/10)
+A bounty marker should be clickable, and open up a mini upload window that 1. checks if the photo is indeed in the vicinity
+and 2. checks if the uploaded photo was taken at least six months ahead of the placement of the marker and
+3. adds the photo to the database with a property that marks it as a collected bounty photo 
+The mini upload window should also have a window that has a delete button that restores a marker to the user
+The marker should disappear once 'claimed'
+A bounty photo should have a gold background instead of white and maybe the icon should sparkle/shine on the map 
+People can see other's bounties, but can't claim them
+Screen should also have a leaderboard showing who has the most bounties collected 

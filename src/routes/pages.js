@@ -19,7 +19,7 @@
 
 const express = require('express');
 const path = require('path');
-const requireLogin = require('../middlewares/authMiddleware'); // <-- important
+const requireLogin = require('../middlewares/authMiddleware');
 const { rootDir } = require('../utils/paths');
 
 const router = express.Router();

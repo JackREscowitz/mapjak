@@ -150,6 +150,68 @@
       nav { width: 100%; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
       .nav-btn { flex: 1; font-size: 0.9rem; padding: 0.4rem 0.75rem; }
     }
+
+    /* === Bounty Panel === */
+    #bounty-panel {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      width: 250px;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      font-family: inherit;
+      transition: transform 0.3s ease;
+      overflow: hidden;
+      z-index: 500; /* Make sure it sits above map */
+    }
+
+    #bounty-panel.collapsed {
+      transform: translateY(calc(100% - 40px)); /* Only header visible */
+    }
+
+    #bounty-panel .bounty-header {
+      background: linear-gradient(135deg, #ffb300, #ffd700, #ffec80);
+      color: #333;
+      padding: 10px;
+      font-weight: normal;
+      display: flex;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+
+    #bounty-panel .bounty-content {
+      padding: 10px;
+    }
+
+    #bounty-button {
+      width: 100%;
+      padding: 8px;
+      background-color: #ffcc33;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-bottom: 12px;
+    }
+
+    #bounty-button.cancel {
+      background-color: #ff6666;
+      color: white;
+    }
+
+    #leaderboard h4 {
+      margin: 0 0 6px;
+      font-size: 16px;
+    }
+
+    #leaderboard-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      font-size: 14px;
+    }
   </style>
 
   <!-- Leaflet JS -->
@@ -168,6 +230,23 @@
     </nav>
   </header>
 
+  <!-- Expandable Bounty Panel -->
+  <div id="bounty-panel" class="collapsed">
+    <div class="bounty-header" onclick="toggleBountyPanel()">
+      <span>Bounties</span>
+      <span id="bounty-count">0/10</span>
+    </div>
+    <div class="bounty-content">
+      <button id="bounty-button" onclick="toggleBountyMode()">Place Bounty</button>
+      <div id="leaderboard">
+        <h4>Leaderboard</h4>
+        <ul id="leaderboard-list">
+          <!-- Will be populated dynamically -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
   <div id="map"></div>
 
   <!-- Toast and Modal -->
@@ -178,6 +257,17 @@
   </div>
 
   <script>
+    // === Global variables ===
+    let map;
+    let bountyMarkers = [];
+    let bountyIcon;
+    let currentUsername = null;
+    let bountyPanel;
+    let bountyButton;
+    let bountyCount;
+    let placingBounty = false;
+    let userBountyCount = 0; // Replace with server data eventually
+
     // === Modal + Toast Helpers ===
     const modal = document.getElementById('imgModal');
     const modalImg = document.getElementById('modalImage');
@@ -203,7 +293,22 @@
     }
 
     window.addEventListener('load', () => {
-      const map = L.map('map').setView([0, 0], 2);
+      // Initialize panel elements now that DOM is ready
+      bountyPanel = document.getElementById('bounty-panel');
+      bountyButton = document.getElementById('bounty-button');
+      bountyCount = document.getElementById('bounty-count');
+
+      fetch('/me', { credentials: 'same-origin' })
+        .then(r => r.json())
+        .then(data => {
+          currentUsername = data.username;
+          initializeMap();
+        })
+        .catch(() => showToast('Could not fetch user info.'));
+    });
+
+    function initializeMap() {
+      map = L.map('map').setView([0, 0], 2);
 
       // User icons
       const userIcons = {
@@ -213,10 +318,42 @@
         "Yash Sriram": L.divIcon({ html: `<div class="custom-pin" style="background-image: url('/icons/yash-sriram-pfp.png')"></div>` }),
       };
       const defaultIcon = L.icon({ iconUrl: '/icons/default-pin.png', iconSize: [30,30], iconAnchor: [15,30], popupAnchor: [0,-30] });
+      bountyIcon = L.icon({
+        iconUrl: '/icons/bounty-pin.png',
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+        popupAnchor: [0, -32]
+      });
 
       L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap contributors & Carto', subdomains: 'abcd', maxZoom: 20
       }).addTo(map);
+
+      // Handle bounty placement on map click
+      map.on('click', function (e) {
+        if (placingBounty && userBountyCount < 10) {
+          const latlng = e.latlng;
+
+          // First, send to server
+          fetch('/bounties', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ lat: latlng.lat, lng: latlng.lng })
+          })
+          .then(r => r.json())
+          .then(newBounty => {
+            addBountyMarker(newBounty.lat, newBounty.lon, newBounty.id, currentUsername);
+            updateBountyCount(userBountyCount + 1);
+          })
+          .catch(() => showToast('Could not create bounty.'));
+
+          toggleBountyMode();
+        } else if (placingBounty && userBountyCount >= 10) {
+          showToast('You have reached the maximum of 10 bounties');
+          toggleBountyMode();
+        }
+      });
 
       // Load photo markers
       fetch('/uploads')
@@ -261,7 +398,107 @@
 
       document.querySelector('.close').onclick = () => modal.style.display = "none";
       modal.onclick = e => { if (e.target === modal) modal.style.display = "none"; };
-    });
+
+      // Load bounty markers from server
+      fetch('/bounties')
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(data => {
+          data.forEach(bounty => {
+            addBountyMarker(
+              bounty.lat,
+              bounty.lon,
+              bounty.id,
+              bounty.username
+            );
+
+            // Count only the user's own bounties
+            if (bounty.username === currentUsername) {
+              updateBountyCount(userBountyCount + 1);
+            }
+          });
+        })
+        .catch(() => showToast('Could not load bounties.'));
+    }
+
+    function addBountyMarker(lat, lng, bountyId, username) {
+      const isOwner = (username === currentUsername);
+
+      const popupContent = `
+        <div class="popup-card">
+          <div class="popup-details">
+            <p><strong>Bounty marker</strong></p>
+            ${isOwner ? `
+              <button class="delete-btn" style="background: linear-gradient(to bottom, #4CAF50, #388E3C); margin-right: 6px;"
+                onclick="handleBountyUpload(${bountyId}, ${lat}, ${lng})">Upload to Claim</button>
+              <button class="delete-btn"
+                onclick="handleBountyDelete(${bountyId}, ${lat}, ${lng})">Delete</button>
+            ` : `<p>Placed by ${username}</p>`}
+          </div>
+        </div>
+      `;
+
+      const marker = L.marker([lat, lng], { icon: bountyIcon })
+        .bindPopup(popupContent)
+        .addTo(map);
+
+      marker.bountyId = bountyId;
+      bountyMarkers.push(marker);
+    }
+
+    function handleBountyUpload(lat, lng) {
+      showToast('Upload flow will be implemented here.');
+      removeBountyMarker(lat, lng);
+    }
+
+    function handleBountyDelete(bountyId, lat, lng) {
+      fetch(`/bounties/${bountyId}`, {
+        method: 'DELETE',
+        credentials: 'same-origin'
+      })
+      .then(r => {
+        if (r.ok) {
+          showToast('Bounty deleted.');
+          updateBountyCount(userBountyCount - 1);
+          removeBountyMarker(lat, lng);
+        } else {
+          showToast('Could not delete bounty.');
+        }
+      })
+      .catch(() => showToast('Error deleting bounty.'));
+    }
+
+    function removeBountyMarker(lat, lng) {
+      for (let i = 0; i < bountyMarkers.length; i++) {
+        const pos = bountyMarkers[i].getLatLng();
+        if (Math.abs(pos.lat - lat) < 1e-9 && Math.abs(pos.lng - lng) < 1e-9) {
+          map.removeLayer(bountyMarkers[i]);
+          bountyMarkers.splice(i, 1);
+          break;
+        }
+      }
+    }
+
+    function toggleBountyPanel() {
+      bountyPanel.classList.toggle('collapsed');
+    }
+
+    function toggleBountyMode() {
+      placingBounty = !placingBounty;
+      if (placingBounty) {
+        bountyButton.textContent = 'Cancel';
+        bountyButton.classList.add('cancel');
+        showToast('Click on the map to place your bounty');
+      } else {
+        bountyButton.textContent = 'Place Bounty';
+        bountyButton.classList.remove('cancel');
+      }
+    }
+
+    function updateBountyCount(count) {
+      userBountyCount = count;
+      bountyCount.textContent = `${count}/10`;
+    }
+
   </script>
 </body>
 </html>

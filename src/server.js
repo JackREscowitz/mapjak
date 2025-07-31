@@ -20,6 +20,7 @@ const { uploadDir, rootDir } = require('./utils/paths');
 const uploadRoutes = require('./routes/uploads');
 const authRoutes = require('./routes/auth');
 const pageRoutes = require('./routes/pages');
+const bountyRoutes = require('./routes/bounties');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -64,6 +65,7 @@ app.use('/uploads', express.static(uploadDir));
 app.use(authRoutes);
 app.use(pageRoutes);
 app.use(uploadRoutes);
+app.use(bountyRoutes);
 
 // -------------------------
 // 404 fallback
