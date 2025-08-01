@@ -4,7 +4,7 @@ on:
   schedule:
     # Runs at 3am UTC on the first of each month
     - cron: '0 3 1 * *'
-  workflow_dispatch: 
+  workflow_dispatch:
 
 jobs:
   backup:
@@ -17,22 +17,26 @@ jobs:
       AWS_DEFAULT_REGION: us-east-1
 
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
-    - name: Install Postgres client & AWS CLI
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y postgresql-client awscli
+      - name: Install Postgres client & AWS CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client curl unzip
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
+          aws --version
 
-    - name: Run DB Backup
-      run: bash scripts/backup_db.sh
+      - name: Run DB Backup
+        run: bash scripts/backup_db.sh
 
-    - name: Run S3 Backup
-      run: bash scripts/backup_s3.sh
+      - name: Run S3 Backup
+        run: bash scripts/backup_s3.sh
 
-    - name: Archive and upload backup artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: mapjak-monthly-backup
-        path: backups/
+      - name: Archive and upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mapjak-monthly-backup
+          path: backups/

@@ -68,8 +68,13 @@
       box-shadow: 0 4px 16px rgba(0,0,0,0.2);
     }
     .popup-img { width: 100%; display: block; border-bottom: 1px solid #ddd; cursor: pointer; }
-    .popup-details { padding: 0.3rem 0.8rem; }
+    .popup-details { padding: 0.3rem 1.2rem; }
     .popup-details p { margin: 0.2rem 0; font-size: 0.8rem; line-height: 1.2; }
+
+    /* Gold tip for claimed bounty popups */
+    .claimed-popup .leaflet-popup-tip {
+      background: linear-gradient(135deg, #fff8dc, #ffd700) !important;
+    }
 
     .custom-pin {
       width: 30px; height: 30px;
@@ -77,6 +82,37 @@
       background-size: cover; background-position: center;
       box-shadow: 0 0 4px rgba(0,0,0,0.2);
       cursor: pointer;
+    }
+
+    /* Shine effect for claimed bounty photos */
+    .custom-pin.claimed-bounty {
+      position: relative;
+      border: 2px solid #ffd700 !important;
+      box-shadow: 0 0 10px rgba(255,255,255,0.9), 0 0 15px rgba(255,215,0,0.8);
+    }
+
+    .custom-pin.claimed-bounty::after {
+      content: "";
+      position: absolute;
+      top: -8px;
+      left: -8px;
+      width: 46px;
+      height: 46px;
+      background: linear-gradient(
+        130deg,
+        rgba(255,255,255,0.8) 0%,
+        rgba(255,255,255,0.1) 40%,
+        rgba(255,215,0,0.0) 60%
+      );
+      border-radius: 50%;
+      transform: rotate(0deg);
+      animation: shineRotate 2s linear infinite;
+    }
+
+    @keyframes shineRotate {
+      0% { transform: rotate(0deg) scale(1); opacity: 0.8; }
+      50% { transform: rotate(180deg) scale(1.1); opacity: 0.4; }
+      100% { transform: rotate(360deg) scale(1); opacity: 0.8; }
     }
 
     .leaflet-div-icon {
@@ -259,6 +295,7 @@
   <script>
     // === Global variables ===
     let map;
+    let photoMarkers;
     let bountyMarkers = [];
     let bountyIcon;
     let currentUsername = null;
@@ -343,7 +380,7 @@
           })
           .then(r => r.json())
           .then(newBounty => {
-            addBountyMarker(newBounty.lat, newBounty.lon, newBounty.id, currentUsername);
+            addBountyMarker(newBounty.lat, newBounty.lon, newBounty.id, currentUsername, newBounty.created_at);
             updateBountyCount(userBountyCount + 1);
           })
           .catch(() => showToast('Could not create bounty.'));
@@ -360,7 +397,7 @@
         .then(r => r.ok ? r.json() : Promise.reject())
         .then(data => {
           const bounds = L.latLngBounds();
-          const markers = L.markerClusterGroup({
+          photoMarkers = L.markerClusterGroup({
             spiderLegPolylineOptions: { weight: 0 },
             maxClusterRadius: 30,
             showCoverageOnHover: false,
@@ -377,21 +414,51 @@
 
           data.forEach(rec => {
             if (!rec.lat || !rec.lon) return;
-            const icon = userIcons[rec.username] || defaultIcon;
+
+            // Decide base icon
+            let icon;
+            if (userIcons[rec.username]) {
+              // If this is a user with a custom profile icon
+              const extraClass = rec.bounty_id ? 'claimed-bounty' : '';
+              icon = L.divIcon({
+                html: `<div class="custom-pin ${extraClass}" style="background-image: url('/icons/${rec.username.toLowerCase().replace(/ /g, '-')}-pfp.png')"></div>`,
+                className: '',
+                iconSize: [30, 30],
+                iconAnchor: [15, 30],      // center bottom of the square
+                popupAnchor: [0, -30]      // popup directly above the icon
+              });
+            } else {
+              // Default pin icons
+              icon = rec.bounty_id
+                ? L.icon({
+                    iconUrl: '/icons/default-pin.png',
+                    iconSize: [30,30],
+                    iconAnchor: [15,30],
+                    popupAnchor: [0,-30],
+                    className: 'claimed-bounty'
+                  })
+                : defaultIcon;
+            }
+
             const popup = `
-              <div class="popup-card">
+              <div class="popup-card" style="${rec.bounty_id ? 'background: linear-gradient(135deg, #fff8dc, #ffd700);' : ''}">
                 <img src="${rec.filepath}" alt="${rec.originalname}" class="popup-img" onclick="showModal('${rec.filepath}')">
                 <div class="popup-details">
-                  <p><strong>Date:</strong> ${rec.date_taken ? new Date(rec.date_taken).toLocaleDateString() : 'Unknown'}</p>
+                  <p><strong>${rec.bounty_id ? 'Claimed:' : 'Date:'}</strong> ${rec.date_taken ? new Date(rec.date_taken).toLocaleDateString() : 'Unknown'}</p>
                   <p><strong>Uploaded by:</strong> ${rec.username}</p>
                   <button onclick="deletePhoto('${rec.id}')" class="delete-btn">Delete</button>
                 </div>
               </div>`;
-            markers.addLayer(L.marker([rec.lat, rec.lon], { icon }).bindPopup(popup));
+
+            const popupOptions = rec.bounty_id ? { className: 'claimed-popup' } : {};
+            photoMarkers.addLayer(
+              L.marker([rec.lat, rec.lon], { icon }).bindPopup(popup, popupOptions)
+            );
+
             bounds.extend([rec.lat, rec.lon]);
           });
 
-          map.addLayer(markers);
+          map.addLayer(photoMarkers);
           if (bounds.isValid()) map.fitBounds(bounds, { padding: [30,30] });
         })
         .catch(() => showToast('Could not load uploads.'));
@@ -408,7 +475,8 @@
               bounty.lat,
               bounty.lon,
               bounty.id,
-              bounty.username
+              bounty.username,
+              bounty.created_at
             );
 
             // Count only the user's own bounties
@@ -418,18 +486,34 @@
           });
         })
         .catch(() => showToast('Could not load bounties.'));
+
+      // Fetch leaderboard
+      fetch('/bounties/leaderboard')
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(data => {
+          const leaderboardList = document.getElementById('leaderboard-list');
+          leaderboardList.innerHTML = ''; // clear
+          data.forEach(entry => {
+            const li = document.createElement('li');
+            li.textContent = `${entry.username}: ${entry.claims}`;
+            leaderboardList.appendChild(li);
+          });
+        })
+        .catch(() => showToast('Could not load leaderboard.'));
+
     }
 
-    function addBountyMarker(lat, lng, bountyId, username) {
+    function addBountyMarker(lat, lng, bountyId, username, createdAt) {
       const isOwner = (username === currentUsername);
 
       const popupContent = `
         <div class="popup-card">
           <div class="popup-details">
-            <p><strong>Bounty marker</strong></p>
+            <p><strong>Here be a bounty!</strong></p>
+            <p>Placed at: ${new Date(createdAt).toLocaleDateString()}</p>
             ${isOwner ? `
               <button class="delete-btn" style="background: linear-gradient(to bottom, #4CAF50, #388E3C); margin-right: 6px;"
-                onclick="handleBountyUpload(${bountyId}, ${lat}, ${lng})">Upload to Claim</button>
+                onclick="handleBountyUpload(${bountyId}, ${lat}, ${lng})">Claim</button>
               <button class="delete-btn"
                 onclick="handleBountyDelete(${bountyId}, ${lat}, ${lng})">Delete</button>
             ` : `<p>Placed by ${username}</p>`}
@@ -445,10 +529,35 @@
       bountyMarkers.push(marker);
     }
 
-    function handleBountyUpload(lat, lng) {
-      showToast('Upload flow will be implemented here.');
-      removeBountyMarker(lat, lng);
+    function handleBountyUpload(bountyId, lat, lng) {
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'image/*';
+
+      fileInput.onchange = () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('photo', file);
+
+        fetch(`/bounties/${bountyId}/claim`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          body: formData
+        })
+        .then(r => r.ok ? r.text() : Promise.reject())
+        .then(() => {
+          showToast('Bounty claimed!');
+          removeBountyMarker(lat, lng);
+          updateBountyCount(userBountyCount - 1);
+        })
+        .catch(() => showToast('Failed to upload bounty photo.'));
+      };
+
+      fileInput.click();
     }
+
 
     function handleBountyDelete(bountyId, lat, lng) {
       fetch(`/bounties/${bountyId}`, {
@@ -488,9 +597,17 @@
         bountyButton.textContent = 'Cancel';
         bountyButton.classList.add('cancel');
         showToast('Click on the map to place your bounty');
+        // Hide photo markers
+        if (photoMarkers) {
+          map.removeLayer(photoMarkers);
+        }
       } else {
         bountyButton.textContent = 'Place Bounty';
         bountyButton.classList.remove('cancel');
+        // Restore photo markers
+        if (photoMarkers) {
+          map.addLayer(photoMarkers);
+        }
       }
     }
 
